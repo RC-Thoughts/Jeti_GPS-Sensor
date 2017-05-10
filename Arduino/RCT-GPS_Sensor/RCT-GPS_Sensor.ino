@@ -1,6 +1,6 @@
 /*
   -----------------------------------------------------------
-                Jeti GPS Sensor v 1.1
+                Jeti GPS Sensor v 1.0
   -----------------------------------------------------------
 
    Based on the "Jeti EX MegaSensor for Teensy 3.x"
