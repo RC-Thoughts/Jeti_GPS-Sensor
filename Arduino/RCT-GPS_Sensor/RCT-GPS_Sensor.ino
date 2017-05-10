@@ -98,7 +98,7 @@ JETISENSOR_CONST sensorsEUext[] PROGMEM =
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
-  { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
+  { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 
@@ -123,7 +123,7 @@ JETISENSOR_CONST sensorsUSext[] PROGMEM =
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
-  { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
+  { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 
