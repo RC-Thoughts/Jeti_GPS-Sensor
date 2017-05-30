@@ -1,6 +1,6 @@
 /*
   -----------------------------------------------------------
-                Jeti GPS Sensor v 1.1
+                Jeti GPS Sensor v 1.2
   -----------------------------------------------------------
 
    Based on the "Jeti EX MegaSensor for Teensy 3.x"
@@ -108,7 +108,7 @@ JETISENSOR_CONST sensorsUS[] PROGMEM =
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSSPEEDMI,  "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
-  { ID_ALTFT,       "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_ALTFT,       "Altitude",   "ft.",         JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 
@@ -118,8 +118,8 @@ JETISENSOR_CONST sensorsUSext[] PROGMEM =
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSSPEEDMI,  "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
-  { ID_ALTFT,       "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
-  { ID_DIST,        "Distance",   "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_ALTFT,       "Altitude",   "ft.",         JetiSensor::TYPE_14b, 0 },
+  { ID_DIST,        "Distance",   "ft.",         JetiSensor::TYPE_14b, 0 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
