@@ -1,6 +1,6 @@
 /*
   -----------------------------------------------------------
-                Jeti GPS Sensor v 1.2
+            Jeti GPS Sensor v 1.3
   -----------------------------------------------------------
 
    Based on the "Jeti EX MegaSensor for Teensy 3.x"
@@ -126,6 +126,8 @@ JETISENSOR_CONST sensorsUSext[] PROGMEM =
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
   { 0 }
 };
+
+void(* resetFunc) (void) = 0;
 
 void setup()
 {
@@ -327,24 +329,28 @@ void HandleMenu()
       EEPROM.write(0, units);
       _nMenu = 6;
       _bSetDisplay = true;
+      resetFunc();
     }
     if ( _nMenu == 2 ) {
       units = 1;
       EEPROM.write(0, units);
       _nMenu = 6;
       _bSetDisplay = true;
+      resetFunc();
     }
     if ( _nMenu == 3 ) {
       extended = 0;
       EEPROM.write(1, extended);
       _nMenu = 6;
       _bSetDisplay = true;
+      resetFunc();
     }
     if ( _nMenu == 4 ) {
       extended = 1;
       EEPROM.write(1, extended);
       _nMenu = 6;
       _bSetDisplay = true;
+      resetFunc();
     }
     if ( _nMenu == 5 ) {
       units = 0;
@@ -353,6 +359,7 @@ void HandleMenu()
       EEPROM.write(1, extended);
       _nMenu = 6;
       _bSetDisplay = true;
+      resetFunc();
     }
   }
 
@@ -368,38 +375,28 @@ void HandleMenu()
       break;
     case 1:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Meter & km/h" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "  Store: DOWN" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
       _bSetDisplay = false;
       break;
     case 2:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Feet & mph" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "  Store: DOWN" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
       _bSetDisplay = false;
       break;
     case 3:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Basic mode" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "  Store: DOWN" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
       _bSetDisplay = false;
       break;
     case 4:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " Extended mode" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "  Store: DOWN" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
       _bSetDisplay = false;
       break;
     case 5:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " Reset defaults" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "  Store: DOWN" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
       _bSetDisplay = false;
       break;
-    case 6:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Settings stored!" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Search sensors!" );
-      _bSetDisplay = false;
-      break;
-      if (_nMenu == 6) {
-        delay(1500);
-        _nMenu = 0;
-        _bSetDisplay = true;
-      }
   }
 }
