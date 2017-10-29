@@ -1,6 +1,6 @@
 /*
   -----------------------------------------------------------
-            Jeti GPS Sensor v 1.4
+            Jeti GPS Sensor v 1.5
   -----------------------------------------------------------
 
    Based on the "Jeti EX MegaSensor for Teensy 3.x"
@@ -448,7 +448,7 @@ void HandleMenu()
   {
     case 0:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " RCT Jeti Tools" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "   GPS Sensor" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor v.1.5" );
       _bSetDisplay = false;
       break;
     case 1:
