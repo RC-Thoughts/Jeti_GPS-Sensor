@@ -1,6 +1,6 @@
 /*
   -----------------------------------------------------------
-            Jeti GPS Sensor v 1.5
+            Jeti GPS Sensor V1.6
   -----------------------------------------------------------
 
    Based on the "Jeti EX MegaSensor for Teensy 3.x"
@@ -46,11 +46,23 @@
 #include "GpsSensor.h"
 #include <EEPROM.h>
 
+// Libraries for different sensor-modules
+#include <Adafruit_BMP085.h>
+#include <Adafruit_BMP280.h>
+#include <Adafruit_BME280.h>
+Adafruit_BMP085 bmp085;
+Adafruit_BMP280 bmp280;
+Adafruit_BME280 bme280;
+
 GpsSensor gps;
 JetiExProtocol jetiEx;
 
-int units = 0;
-int extended = 0;
+// EU/US Units
+enum unitType {EU, US};
+unitType units = EU;
+
+int extended = false;
+int distance3D = true;
 long homeTime = 0;
 boolean fix = false;
 boolean homeSet = false;
@@ -63,24 +75,63 @@ float home_lon;
 float home_alt = 0;
 int altirel;
 int altiabs;
-int vario;
+
+int uLoopCount = 0;
+long uPressure = 0;
+int uTemperature = 0;
+long uVario = 0;
+float lastVariofilter = 0;
+long curAltitude = 0;
+long lastAltitude = 0;
+unsigned long lastTime = 0;
+long startAltitude = 0;
+int uHumidity = 0;
+
+// Sensor type
+enum senType {
+  unknown,
+  BMP085_BMP180,
+  BMP280,
+  BME280
+};
+
+struct {
+  senType type = unknown;
+  float filterX = 0.5;
+  float filterY = 0.5;
+  long deadzone = 0;
+} pressureSensor;
+
+
+// Vario lowpass filter and
+// dead zone filter in centimeter (Even if you use US-units!)
+
+// BMP085/BMP180
+#define BMP085_FILTER_X 0.5
+#define BMP085_FILTER_Y 0.5
+#define BMP085_DEADZONE 0
+
+// BMP280/BMP280
+#define BMx280_FILTER_X 0.88
+#define BMx280_FILTER_Y 0.15
+#define BMx280_DEADZONE 3
 
 enum
 {
   ID_GPSLAT       = 1,
   ID_GPSLON       = 2,
-  ID_GPSSPEEDKM   = 3,
-  ID_GPSSPEEDMI   = 3,
-  ID_ALTMEREL     = 4,
-  ID_ALTFTREL     = 4,
-  ID_ALTMEABS     = 5,
-  ID_ALTFTABS     = 5,
+  ID_GPSSPEED     = 3,
+  ID_ALTREL       = 4,
+  ID_ALTABS       = 5,
   ID_VARIO        = 6,
   ID_DIST         = 7,
   ID_HEADING      = 8,
   ID_COURSE       = 9,
   ID_SATS         = 10,
   ID_HDOP         = 11,
+  ID_PRESSURE     = 12,
+  ID_TEMPERATURE  = 13,
+  ID_HUMIDITY     = 14
 };
 
 JETISENSOR_CONST sensorsEU[] PROGMEM =
@@ -88,9 +139,9 @@ JETISENSOR_CONST sensorsEU[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEEDKM,  "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
-  { ID_ALTMEREL,    "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
-  { ID_ALTMEABS,    "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
+  { ID_GPSSPEED,    "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
+  { ID_ALTREL,      "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
+  { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 
@@ -99,26 +150,30 @@ JETISENSOR_CONST sensorsEUext[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEEDKM,  "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
-  { ID_ALTMEREL,    "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
-  { ID_ALTMEABS,    "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
-  { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_14b, 1 },
+  { ID_GPSSPEED,    "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
+  { ID_ALTREL,      "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
+  { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
+  { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_30b, 2 },
   { ID_DIST,        "Distance",   "m",          JetiSensor::TYPE_14b, 0 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
+  { ID_PRESSURE,    "Pressure",   "hPa",        JetiSensor::TYPE_30b, 2 },
+  { ID_TEMPERATURE, "Temperature","\xB0\x43",   JetiSensor::TYPE_14b, 1 },
+  { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { 0 }
 };
+
 
 JETISENSOR_CONST sensorsUS[] PROGMEM =
 {
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEEDMI,  "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
-  { ID_ALTFTREL,    "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
-  { ID_ALTFTABS,    "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_GPSSPEED,    "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
+  { ID_ALTREL,      "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 
@@ -127,75 +182,154 @@ JETISENSOR_CONST sensorsUSext[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEEDMI,  "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
-  { ID_ALTFTREL,    "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
-  { ID_ALTFTABS,    "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
-  { ID_VARIO,        "Vario",     "ft/s",       JetiSensor::TYPE_14b, 1 },
+  { ID_GPSSPEED,    "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
+  { ID_ALTREL,      "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_30b, 2 },
   { ID_DIST,        "Distance",   "ft.",        JetiSensor::TYPE_14b, 0 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
+  { ID_PRESSURE,    "Pressure",   "inHG",       JetiSensor::TYPE_30b, 2 },
+  { ID_TEMPERATURE, "Temperature","\xB0\x46",   JetiSensor::TYPE_14b, 1 },
+  { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { 0 }
 };
-
-// Vario stuff
-#define sample_count 25
-long average_altitude = 0;
-int samples = 40;
-int maxsamples = 50;
-float alt[51]; // Was 51
-float tim[51]; // Was 51
-static long k[sample_count];
-
-static long Averaging_Filter(long input);
-static long Averaging_Filter(long input) // moving average filter function
-{
-  long sum = 0;
-  for (int i = 0; i < sample_count; i++) {
-    k[i] = k[i + 1];
-  }
-  k[sample_count - 1] = input;
-  for (int i = 0; i < sample_count; i++) {
-    sum += k[i];
-  }
-  return ( sum / sample_count ) ;
-}
-// Vario end
 
 // Restart by user
 void(* resetFunc) (void) = 0;
 
 void setup()
 {
+  // identify sensor
+  if (bmp085.begin()) {
+    pressureSensor.type = BMP085_BMP180;
+    pressureSensor.filterX = BMP085_FILTER_X;
+    pressureSensor.filterY = BMP085_FILTER_Y;
+    pressureSensor.deadzone = BMP085_DEADZONE;
+  } else if (bmp280.begin()) {
+    pressureSensor.type = BMP280;
+    pressureSensor.filterX = BMx280_FILTER_X;
+    pressureSensor.filterY = BMx280_FILTER_Y;
+    pressureSensor.deadzone = BMx280_DEADZONE;
+  } else if (bme280.begin()) {
+    pressureSensor.type = BME280;
+    pressureSensor.filterX = BMx280_FILTER_X;
+    pressureSensor.filterY = BMx280_FILTER_Y;
+    pressureSensor.deadzone = BMx280_DEADZONE;
+  }
+
   units = EEPROM.read(0);
   extended = EEPROM.read(1);
   if (units == 255) {
-    units = 0;
+    units = EU;
   }
   if (extended == 255) {
-    extended = 0;
+    extended = false;
   }
   gps.Init( GpsSensor::SERIAL3 );
 
   jetiEx.SetDeviceId( 0x76, 0x32 );
 
-  if (units == 0 && extended == 0) {
+  if (units == EU && extended == false) {
     jetiEx.Start( "GPS", sensorsEU, JetiExProtocol::SERIAL2 );
   }
-  if (units == 0 && extended == 1) {
+  if (units == EU && extended == true) {
     jetiEx.Start( "GPS", sensorsEUext, JetiExProtocol::SERIAL2 );
   }
-  if (units == 1 && extended == 0) {
+  if (units == US && extended == false) {
     jetiEx.Start( "GPS", sensorsUS, JetiExProtocol::SERIAL2 );
   }
-  if (units == 1 && extended == 1) {
+  if (units == US && extended == true) {
     jetiEx.Start( "GPS", sensorsUSext, JetiExProtocol::SERIAL2 );
   }
 }
 
 void loop()
 {
+  if(pressureSensor.type != unknown){
+    // Read sensormodule values
+    switch (pressureSensor.type) {
+    case BMP085_BMP180 : {
+        uPressure = bmp085.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
+        curAltitude = bmp085.readAltitude(101325) * 100; // In Centimeter
+        uTemperature = bmp085.readTemperature() * 10; // In Celsius ( x10 for one decimal)
+        break;
+      }
+    case BMP280 : {
+        uPressure = bmp280.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
+        curAltitude = bmp280.readAltitude(1013.25) * 100; // In Centimeter
+        uTemperature = bmp280.readTemperature() * 10; // In Celsius ( x10 for one decimal)
+        break;
+      }
+    case BME280 : {
+        uPressure = bme280.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
+        curAltitude = bme280.readAltitude(1013.25) * 100; // In Centimeter
+        uTemperature = bme280.readTemperature() * 10; // In Celsius ( x10 for one decimal)
+        uHumidity = bme280.readHumidity() * 10; // In %rH
+        break;
+      }
+    }
+  
+    // Set start-altitude in sensor-start
+    if (uLoopCount == 19) {
+      startAltitude = curAltitude;
+      lastVariofilter = 0;
+    }
+    
+    // Vario calculation
+    if(float(millis() - lastTime > 150)){
+      uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
+      lastTime = millis();
+
+      lastAltitude = curAltitude;
+    
+      // Vario Filter
+      float fX;
+      float fY = uVario;
+      fX = pressureSensor.filterX * lastVariofilter;
+      fY = pressureSensor.filterY * fY;
+      lastVariofilter = fX + fY;
+      uVario = lastVariofilter;
+      
+      // Dead zone filter
+      if (uVario > pressureSensor.deadzone) {
+        uVario -= pressureSensor.deadzone;
+      } else if (uVario < (pressureSensor.deadzone * -1)) {
+        uVario -= (pressureSensor.deadzone * -1);
+      } else {
+        uVario = 0;
+      }
+    }
+    
+    // Altitude
+    altirel = (curAltitude - startAltitude) / 100;
+    
+    if (uLoopCount < 20) {
+      uLoopCount++;
+      uVario = 0;
+      altirel = 0;
+    }
+
+    // EU to US conversions
+    // ft/s = m/s / 0.3048
+    // inHG = hPa * 0,029529983071445
+    // ft = m / 0.3048
+    if (units == US) {
+      altirel = altirel / 0.3048;
+      uVario = uVario / 0.3048;
+      uPressure = uPressure * 0.029529983071445;
+      uTemperature = uTemperature * 1.8 + 320;
+    }
+
+    jetiEx.SetSensorValue( ID_VARIO, uVario );
+    jetiEx.SetSensorValue( ID_ALTREL, altirel );
+    jetiEx.SetSensorValue( ID_PRESSURE, uPressure );
+    jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
+    jetiEx.SetSensorValue( ID_HUMIDITY, uHumidity );
+  }
+  
   gps.DoGpsSensor();
 
   if (!fix) {
@@ -212,19 +346,18 @@ void loop()
   if (fix) {
     lat = gps.GetLat();
     lng = gps.GetLon();
-    if (units == 0) {
+    if (units == EU) {
       jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
       jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
-      jetiEx.SetSensorValue( ID_ALTMEABS, gps.GetAltMe() );
-      jetiEx.SetSensorValue( ID_GPSSPEEDKM, gps.GetSpeedKm() );
-    }
-    if (units == 1) {
+      jetiEx.SetSensorValue( ID_ALTABS, gps.GetAltMe() );
+      jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedKm() );
+    }else{
       jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
       jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
-      jetiEx.SetSensorValue( ID_ALTFTABS, gps.GetAltFt() );
-      jetiEx.SetSensorValue( ID_GPSSPEEDMI, gps.GetSpeedMi() );
+      jetiEx.SetSensorValue( ID_ALTABS, gps.GetAltFt() );
+      jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedMi() );
     }
-    if (extended == 1) {
+    if (extended) {
       jetiEx.SetSensorValue( ID_HEADING, gps.GetCourseDeg() );
       jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
       jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
@@ -234,24 +367,25 @@ void loop()
       homeSet = true;
       home_lat = lat;
       home_lon = lng;
-      if (units == 0) {
+      if (units == EU) {
         home_alt = gps.GetAltMe();
-      }
-      if (units == 1) {
+      }else{
         home_alt = gps.GetAltFt();
       }
     }
 
     if (homeSet) {
-      if (extended == 1) {
+      if (extended) {
         // Distance to Model
-        distToHome =
-          TinyGPSPlus::distanceBetween(
-            gps.GetLat(),
-            gps.GetLon(),
-            home_lat,
-            home_lon);
-        if (units == 1) {
+        distToHome = TinyGPSPlus::distanceBetween(
+                      gps.GetLat(),
+                      gps.GetLon(),
+                      home_lat,
+                      home_lon);
+        if(distance3D){
+          distToHome = sqrt(pow(altirel,2) + pow(distToHome,2));
+        }
+        if (units == US) {
           distToHome = (distToHome * 3.2808399);
         }
 
@@ -265,101 +399,40 @@ void loop()
       }
 
       // Calculate altitude from zero
-      if (units == 0) {
+      if (units == EU) {
         altiabs = gps.GetAltMe();
-        if (home_alt >= 0) {
-          altirel = (altiabs - home_alt);
-          if (altirel < 0) {
-            altirel = 0;
-          }
-          jetiEx.SetSensorValue( ID_ALTMEABS, altiabs );
-          jetiEx.SetSensorValue( ID_ALTMEREL, altirel );
-        } else {
-          altiabs = gps.GetAltMe();
-          altirel = (altiabs + home_alt);
-          if (altirel < 0) {
-            altirel = 0;
-          }
-          jetiEx.SetSensorValue( ID_ALTMEABS, altiabs );
-          jetiEx.SetSensorValue( ID_ALTMEREL, altirel );
+        calcRelAltitude();
+        jetiEx.SetSensorValue( ID_ALTABS, altiabs );
+        if(pressureSensor.type == unknown){
+          jetiEx.SetSensorValue( ID_ALTREL, altirel );
         }
-      }
-      if (units == 1) {
+      }else{
         altiabs = gps.GetAltFt();
-        if (home_alt >= 0) {
-          altirel = (altiabs - home_alt);
-          if (altirel < 0) {
-            altirel = 0;
-          }
-          jetiEx.SetSensorValue( ID_ALTFTABS, altiabs );
-          jetiEx.SetSensorValue( ID_ALTFTREL, altirel );
-        } else {
-          altiabs = gps.GetAltFt();
-          altirel = (altiabs + home_alt);
-          if (altirel < 0) {
-            altirel = 0;
-          }
-          jetiEx.SetSensorValue( ID_ALTFTABS, altiabs );
-          jetiEx.SetSensorValue( ID_ALTFTREL, altirel );
+        calcRelAltitude();
+        jetiEx.SetSensorValue( ID_ALTABS, altiabs );
+        if(pressureSensor.type == unknown){
+          jetiEx.SetSensorValue( ID_ALTREL, altirel );
         }
       }
     } else {
       distToHome = 0;
       courseToModel = 0;
     }
-    if (extended == 1) {
+    if (extended) {
       jetiEx.SetSensorValue( ID_DIST, distToHome );
       jetiEx.SetSensorValue( ID_COURSE, courseToModel );
     }
-        // Vario operations here
-        float time = millis();
-        float uVario = 0;
-        float N1 = 0;
-        float N2 = 0;
-        float N3 = 0;
-        float D1 = 0;
-        float D2 = 0;
-
-        long average_altitude = Averaging_Filter(altiabs);     
-
-        for (int cc = 1; cc <= maxsamples; cc++) {
-          alt[(cc - 1)] = alt[cc];
-          tim[(cc - 1)] = tim[cc];
-        };
-        alt[maxsamples] = altiabs;
-        tim[maxsamples] = time;
-        float stime = tim[maxsamples - samples];
-
-        for (int cc = (maxsamples - samples); cc < maxsamples; cc++) {
-          N1 += (tim[cc] - stime) * alt[cc];
-          N2 += (tim[cc] - stime);
-          N3 += (alt[cc]);
-          D1 += (tim[cc] - stime) * (tim[cc] - stime);
-          D2 += (tim[cc] - stime);
-        };
-
-        uVario = 1000 * ((samples * N1) - N2 * N3) / (samples * D1 - D2 * D2);
-        vario = uVario;
-        jetiEx.SetSensorValue( ID_VARIO, vario );
   } else { // If Fix end
     lat = 0;
     lng = 0;
-    if (units == 0) {
-      jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
-      jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
-      jetiEx.SetSensorValue( ID_ALTMEABS, 0 );
-      jetiEx.SetSensorValue( ID_ALTMEREL, 0 );
-      jetiEx.SetSensorValue( ID_GPSSPEEDKM, 0 );
+    if(pressureSensor.type == unknown){
+      jetiEx.SetSensorValue( ID_ALTREL, 0 );
     }
-    if (units == 1) {
-      jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
-      jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
-      jetiEx.SetSensorValue( ID_ALTFTABS, 0 );
-      jetiEx.SetSensorValue( ID_ALTFTREL, 0 );
-      jetiEx.SetSensorValue( ID_GPSSPEEDMI, 0 );
-    }
-    if (extended == 1) {
-      jetiEx.SetSensorValue( ID_VARIO, 0 );
+    jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
+    jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
+    jetiEx.SetSensorValue( ID_ALTABS, 0 );
+    jetiEx.SetSensorValue( ID_GPSSPEED, 0 );
+    if (extended) {
       jetiEx.SetSensorValue( ID_HEADING, 0 );
       jetiEx.SetSensorValue( ID_SATS, 0 );
       jetiEx.SetSensorValue( ID_HDOP, 0 );
@@ -370,6 +443,20 @@ void loop()
 
   HandleMenu();
   jetiEx.DoJetiSend();
+}
+
+void calcRelAltitude(){
+  if (home_alt >= 0) {
+    altirel = (altiabs - home_alt);
+    if (altirel < 0) {
+      altirel = 0;
+    }
+  } else {
+    altirel = (altiabs + home_alt);
+    if (altirel < 0) {
+      altirel = 0;
+    }
+  }
 }
 
 void HandleMenu()
@@ -386,7 +473,7 @@ void HandleMenu()
   //  96 0x60 : // LEFT+RIGHT
 
   // Right
-  if ( c == 0xe0 && _nMenu < 5 )
+  if ( c == 0xe0 && _nMenu < 7 )
   {
     _nMenu++;
     _bSetDisplay = true;
@@ -403,39 +490,55 @@ void HandleMenu()
   if ( c == 0xb0 )
   {
     if ( _nMenu == 1 ) {
-      units = 0;
+      units = EU;
       EEPROM.write(0, units);
-      _nMenu = 6;
+      _nMenu = 8;
       _bSetDisplay = true;
       resetFunc();
     }
     if ( _nMenu == 2 ) {
-      units = 1;
+      units = US;
       EEPROM.write(0, units);
-      _nMenu = 6;
+      _nMenu = 8;
       _bSetDisplay = true;
       resetFunc();
     }
     if ( _nMenu == 3 ) {
-      extended = 0;
+      extended = false;
       EEPROM.write(1, extended);
-      _nMenu = 6;
+      _nMenu = 8;
       _bSetDisplay = true;
       resetFunc();
     }
     if ( _nMenu == 4 ) {
-      extended = 1;
+      extended = true;
       EEPROM.write(1, extended);
-      _nMenu = 6;
+      _nMenu = 8;
       _bSetDisplay = true;
       resetFunc();
     }
     if ( _nMenu == 5 ) {
-      units = 0;
-      extended = 0;
+      distance3D = false;
+      EEPROM.write(2, distance3D);
+      _nMenu = 8;
+      _bSetDisplay = true;
+      resetFunc();
+    }
+    if ( _nMenu == 6 ) {
+      distance3D = true;
+      EEPROM.write(2, distance3D);
+      _nMenu = 8;
+      _bSetDisplay = true;
+      resetFunc();
+    }
+    if ( _nMenu == 7 ) {
+      units = EU;
+      extended = false;
+      distance3D = true;
       EEPROM.write(0, units);
       EEPROM.write(1, extended);
-      _nMenu = 6;
+      EEPROM.write(2, distance3D);
+      _nMenu = 8;
       _bSetDisplay = true;
       resetFunc();
     }
@@ -448,7 +551,7 @@ void HandleMenu()
   {
     case 0:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " RCT Jeti Tools" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor v.1.5" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor V1.6" );
       _bSetDisplay = false;
       break;
     case 1:
@@ -472,6 +575,16 @@ void HandleMenu()
       _bSetDisplay = false;
       break;
     case 5:
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Horiz. distance" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
+      _bSetDisplay = false;
+      break;
+    case 6:
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  3D distance" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
+      _bSetDisplay = false;
+      break;
+    case 7:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " Reset defaults" );
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
       _bSetDisplay = false;
