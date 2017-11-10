@@ -1,23 +1,26 @@
-# Jeti_GPS-Sensor
-Jeti GPS-Sensor
+# Jeti VarioGPS-Sensor
 
-   RC-Thoughts Jeti GPS-Sensor
- 
-   User selectable EU or US mode. (km/h & meter / mph & feet)
+Erweiterte Version des Jeti_GPS-Sensors von RC-Thoughts:
+- Es werden zusätzlich die Drucksensoren BMP085, BMP180, BMP280, BME280 unterstützt
+- Vario und die relative Höhe wird barometrisch bestimmt
 
-   Simple mode values
-   - Longitude
-   - Latitude
-   - Groundspeed
-   - Altitude
+Folgende Einstellungen können per Jetibox vorgenommen werden:
+- EU oder US Einheiten (km/h & Meter / mph & Feet)
+- 2D oder 3D Distanz zum Modell
+- Basis oder erweiterte Telemetriewerte:
 
-   Extended mode added values
-   - Distance to model from start point
-   - Model heading (Flying direction)
-   - Course to model from start point
-   - Satellites count
-   - HDOP (Horisontal dilution of precision)
+    Basis Werte:
+   - Position (Longitude,Latitude)
+   - Geschwindigkeit über Grund 
+   - Absolute und relative Höhe
+   - Vario
 
-More info: https://www.rc-thoughts.com/jeti-gps-sensor/
-
-Shared under MIT-license by Tero Salminen (c) RC-Thoughts 2017
+   Erweiterte Werte
+   - Distanz vom Modell zum Startpunkt (2D und 3D)
+   - Flugrichtung (Heading)
+   - Kurs vom Modell zum Startpunkt
+   - Anzahl Satelliten
+   - HDOP (Horizontaler Faktor der Positionsgenauigkeit) 
+   - Luftdruck
+   - Temperatur
+   - Luftfeuchtigkeit

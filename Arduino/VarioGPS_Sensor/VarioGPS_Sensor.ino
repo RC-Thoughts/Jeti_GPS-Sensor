@@ -1,20 +1,18 @@
 /*
   -----------------------------------------------------------
-            Jeti GPS Sensor V1.6
+            Jeti VarioGPS Sensor V1.6
   -----------------------------------------------------------
 
-   Based on the "Jeti EX MegaSensor for Teensy 3.x"
-   from Bernd Wokoeck 2016
+   Based on the "Jeti GPS Sensor" from Tero Salminen 2017
 
-   Uses affordable Arduino Pro Mini + Ublox NEO-6M GPS-module
+   Uses affordable Arduino Pro Mini + Ublox NEO-6M GPS-module + Pressure module with BMP085, BMP180, BMP280, BME280 
 
    Libraries needed
    - TinyGPS++ by Mikal Hart
    - GPSsensor by Bernd Wokoeck (Extended by Tero Salminen)
    - AltSoftSerial by Paul Stoffregen
    - Jeti Sensor EX Telemetry C++ Library by Bernd Wokoeck
-
-   Tero Salminen RC-Thoughts.com (c) 2017 www.rc-thoughts.com
+   - Adafruit BMP085, BMP280, BME280 
 
   -----------------------------------------------------------
 
@@ -27,18 +25,18 @@
    - Latitude
    - Groundspeed
    - Altitude
+   - Vario
 
    Extended mode added values
-   - Variometer (VSI)
    - Distance to model from start point
    - Model heading (Flying direction)
    - Course to model from start point
    - Satellites count
    - HDOP (Horisontal dilution of precision)
-
-  -----------------------------------------------------------
-      Shared under MIT-license by Tero Salminen (c) 2017
-  -----------------------------------------------------------
+   - Pressure
+   - Temperature
+   - Humidity
+   
 */
 
 #include <JetiExSerial.h>
@@ -141,6 +139,7 @@ JETISENSOR_CONST sensorsEU[] PROGMEM =
   { ID_GPSSPEED,    "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
   { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
+  { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_30b, 2 },
   { 0 }
 };
 
@@ -173,6 +172,7 @@ JETISENSOR_CONST sensorsUS[] PROGMEM =
   { ID_GPSSPEED,    "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
   { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
+  { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_30b, 2 },
   { 0 }
 };
 
@@ -328,9 +328,11 @@ void loop()
 
     jetiEx.SetSensorValue( ID_VARIO, uVario );
     jetiEx.SetSensorValue( ID_ALTREL, altirel );
-    jetiEx.SetSensorValue( ID_PRESSURE, uPressure );
-    jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
-    jetiEx.SetSensorValue( ID_HUMIDITY, uHumidity );
+    if (extended){
+      jetiEx.SetSensorValue( ID_PRESSURE, uPressure );
+      jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
+      jetiEx.SetSensorValue( ID_HUMIDITY, uHumidity );
+    }
   }
   
   gps.DoGpsSensor();
@@ -346,24 +348,24 @@ void loop()
     }
   }
 
-  jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
-  jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
+  if (extended){
+    jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
+    jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
+  }
 
   if (fix) {
     lat = gps.GetLat();
     lng = gps.GetLon();
+    jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
+    jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
     if (units == EU) {
-      jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
-      jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
       jetiEx.SetSensorValue( ID_ALTABS, gps.GetAltMe() );
       jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedKm() );
     }else{
-      jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
-      jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
       jetiEx.SetSensorValue( ID_ALTABS, gps.GetAltFt() );
       jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedMi() );
     }
-    if (extended) {
+    if (extended){
       jetiEx.SetSensorValue( ID_HEADING, gps.GetCourseDeg() );
     }
 
@@ -405,18 +407,23 @@ void loop()
       // Calculate altitude from zero
       if (units == EU) {
         altiabs = gps.GetAltMe();
-        calcRelAltitude();
-        jetiEx.SetSensorValue( ID_ALTABS, altiabs );
-        if(pressureSensor.type == unknown){
-          jetiEx.SetSensorValue( ID_ALTREL, altirel );
-        }
       }else{
         altiabs = gps.GetAltFt();
-        calcRelAltitude();
-        jetiEx.SetSensorValue( ID_ALTABS, altiabs );
-        if(pressureSensor.type == unknown){
-          jetiEx.SetSensorValue( ID_ALTREL, altirel );
+      }
+      jetiEx.SetSensorValue( ID_ALTABS, altiabs );
+      if(pressureSensor.type == unknown){
+        if (home_alt >= 0) {
+          altirel = (altiabs - home_alt);
+          if (altirel < 0) {
+            altirel = 0;
+          }
+        } else {
+          altirel = (altiabs + home_alt);
+          if (altirel < 0) {
+            altirel = 0;
+          }
         }
+        jetiEx.SetSensorValue( ID_ALTREL, altirel );
       }
     } else {
       distToHome = 0;
@@ -445,20 +452,6 @@ void loop()
 
   HandleMenu();
   jetiEx.DoJetiSend();
-}
-
-void calcRelAltitude(){
-  if (home_alt >= 0) {
-    altirel = (altiabs - home_alt);
-    if (altirel < 0) {
-      altirel = 0;
-    }
-  } else {
-    altirel = (altiabs + home_alt);
-    if (altirel < 0) {
-      altirel = 0;
-    }
-  }
 }
 
 void HandleMenu()
@@ -536,8 +529,8 @@ void HandleMenu()
   switch ( _nMenu )
   {
     case aboutScreen:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " RCT Jeti Tools" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor V1.6" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "VarioGPS Sensor" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "     V1.6" );
       break;
     case setUnits:
       if(units == EU){
