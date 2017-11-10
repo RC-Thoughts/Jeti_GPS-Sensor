@@ -57,12 +57,11 @@ Adafruit_BME280 bme280;
 GpsSensor gps;
 JetiExProtocol jetiEx;
 
-// EU/US Units
 enum unitType {EU, US};
 unitType units = EU;
+bool extended = false;
+bool distance3D = true;
 
-int extended = false;
-int distance3D = true;
 long homeTime = 0;
 boolean fix = false;
 boolean homeSet = false;
@@ -157,7 +156,7 @@ JETISENSOR_CONST sensorsEUext[] PROGMEM =
   { ID_DIST,        "Distance",   "m",          JetiSensor::TYPE_14b, 0 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
-  { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
+  { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b, 0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
   { ID_PRESSURE,    "Pressure",   "hPa",        JetiSensor::TYPE_30b, 2 },
   { ID_TEMPERATURE, "Temperature","\xB0\x43",   JetiSensor::TYPE_14b, 1 },
@@ -185,11 +184,11 @@ JETISENSOR_CONST sensorsUSext[] PROGMEM =
   { ID_GPSSPEED,    "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
   { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
-  { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_30b, 2 },
+  { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_30b, 2 }, 
   { ID_DIST,        "Distance",   "ft.",        JetiSensor::TYPE_14b, 0 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
-  { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_14b, 0 },
+  { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b, 0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
   { ID_PRESSURE,    "Pressure",   "inHG",       JetiSensor::TYPE_30b, 2 },
   { ID_TEMPERATURE, "Temperature","\xB0\x46",   JetiSensor::TYPE_14b, 1 },
@@ -220,14 +219,18 @@ void setup()
     pressureSensor.deadzone = BMx280_DEADZONE;
   }
 
-  units = EEPROM.read(0);
-  extended = EEPROM.read(1);
-  if (units == 255) {
-    units = EU;
+  // read settings from eeprom
+  if (EEPROM.read(0) != 0xFF) {
+    units = EEPROM.read(0);
   }
-  if (extended == 255) {
-    extended = false;
+  if (EEPROM.read(1) != 0xFF) {
+    extended = EEPROM.read(1);
   }
+  if (EEPROM.read(2) != 0xFF) {
+    distance3D = EEPROM.read(2);
+  }
+
+  // init GPS
   gps.Init( GpsSensor::SERIAL3 );
 
   jetiEx.SetDeviceId( 0x76, 0x32 );
@@ -343,6 +346,9 @@ void loop()
     }
   }
 
+  jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
+  jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
+
   if (fix) {
     lat = gps.GetLat();
     lng = gps.GetLon();
@@ -359,8 +365,6 @@ void loop()
     }
     if (extended) {
       jetiEx.SetSensorValue( ID_HEADING, gps.GetCourseDeg() );
-      jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
-      jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
     }
 
     if (!homeSet && homeTime > 0 && (homeTime < millis())) {
@@ -434,8 +438,6 @@ void loop()
     jetiEx.SetSensorValue( ID_GPSSPEED, 0 );
     if (extended) {
       jetiEx.SetSensorValue( ID_HEADING, 0 );
-      jetiEx.SetSensorValue( ID_SATS, 0 );
-      jetiEx.SetSensorValue( ID_HDOP, 0 );
       jetiEx.SetSensorValue( ID_DIST, 0 );
       jetiEx.SetSensorValue( ID_COURSE, 0 );
     }
@@ -460,8 +462,18 @@ void calcRelAltitude(){
 }
 
 void HandleMenu()
-{
-  static int  _nMenu = 0;
+{ 
+  // Jetibox screens, names and order
+  enum screenViews {
+    aboutScreen,
+    setUnits,
+    setBasicMode,
+    setDistanceMode,
+    saveSettings,
+    defaultSettings
+  };
+
+  static int  _nMenu = aboutScreen;
   static bool _bSetDisplay = true;
   uint8_t c = jetiEx.GetJetiboxKey();
 
@@ -473,14 +485,14 @@ void HandleMenu()
   //  96 0x60 : // LEFT+RIGHT
 
   // Right
-  if ( c == 0xe0 && _nMenu < 7 )
+  if ( c == 0xe0 && _nMenu < defaultSettings)
   {
     _nMenu++;
     _bSetDisplay = true;
   }
 
   // Left
-  if ( c == 0x70 &&  _nMenu > 0 )
+  if ( c == 0x70 &&  _nMenu > aboutScreen )
   {
     _nMenu--;
     _bSetDisplay = true;
@@ -489,59 +501,33 @@ void HandleMenu()
   // DN
   if ( c == 0xb0 )
   {
-    if ( _nMenu == 1 ) {
-      units = EU;
-      EEPROM.write(0, units);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
+    switch ( _nMenu )
+    {
+      case setUnits:
+        if(units == EU){
+          units = US;
+        }else{
+          units = EU;
+        }
+        break;
+      case setBasicMode:
+        extended = !extended;
+        break;
+      case setDistanceMode:
+        distance3D = !distance3D;
+        break;
+      case saveSettings:
+        EEPROM.write(0, units);
+        EEPROM.write(1, extended);
+        EEPROM.write(2, distance3D);
+        resetFunc();
+      case defaultSettings:
+        EEPROM.write(0, 0xFF);
+        EEPROM.write(1, 0xFF);
+        EEPROM.write(2, 0xFF);
+        resetFunc();
     }
-    if ( _nMenu == 2 ) {
-      units = US;
-      EEPROM.write(0, units);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
-    }
-    if ( _nMenu == 3 ) {
-      extended = false;
-      EEPROM.write(1, extended);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
-    }
-    if ( _nMenu == 4 ) {
-      extended = true;
-      EEPROM.write(1, extended);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
-    }
-    if ( _nMenu == 5 ) {
-      distance3D = false;
-      EEPROM.write(2, distance3D);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
-    }
-    if ( _nMenu == 6 ) {
-      distance3D = true;
-      EEPROM.write(2, distance3D);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
-    }
-    if ( _nMenu == 7 ) {
-      units = EU;
-      extended = false;
-      distance3D = true;
-      EEPROM.write(0, units);
-      EEPROM.write(1, extended);
-      EEPROM.write(2, distance3D);
-      _nMenu = 8;
-      _bSetDisplay = true;
-      resetFunc();
-    }
+    _bSetDisplay = true;
   }
 
   if ( !_bSetDisplay )
@@ -549,45 +535,42 @@ void HandleMenu()
 
   switch ( _nMenu )
   {
-    case 0:
+    case aboutScreen:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " RCT Jeti Tools" );
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor V1.6" );
-      _bSetDisplay = false;
       break;
-    case 1:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Meter & km/h" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
+    case setUnits:
+      if(units == EU){
+        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Units: \x45\x55\x28\x6D\x2C\xDF\x43\x29" );
+      }else{
+        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Units: \x55\x53\x28\x66\x74\x2C\xDF\x46\x29" );
+      }
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
-    case 2:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Feet & mph" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
+    case setBasicMode:
+      if(!extended){
+        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Basic mode" );
+      }else{
+        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " Extended mode" );
+      }  
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
-    case 3:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  Basic mode" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
+    case setDistanceMode:
+      if(!distance3D){
+        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  2D distance" );
+      }else{
+        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  3D distance" );
+      }
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
-    case 4:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " Extended mode" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
+    case saveSettings:
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Save and Restart" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Save: Down" );
       break;
-    case 5:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Horiz. distance" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
-      break;
-    case 6:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "  3D distance" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
-      break;
-    case 7:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " Reset defaults" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, " Restart: DOWN" );
-      _bSetDisplay = false;
+    case defaultSettings:
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset Defaults" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Reset: Down" );
       break;
   }
+  _bSetDisplay = false;
 }
