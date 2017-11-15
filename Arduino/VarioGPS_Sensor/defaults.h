@@ -7,12 +7,32 @@
 // **** Sensor defaults ****
 #define DEFAULT_UNIT              EU
 
-#define DEFAULT_GPS_MODE          basic
+#define DEFAULT_GPS_MODE          disabled   //disabled, basic, extended
 #define DEFAULT_GPS_3D_DISTANCE   true
 
 #define DEFAULT_VOLT1_ENABLE      false
 #define DEFAULT_VOLT2_ENABLE      false
 
+// Sensor IDs
+enum
+{
+  ID_GPSLAT       = 1,
+  ID_GPSLON       = 2,
+  ID_GPSSPEED     = 3,
+  ID_ALTREL       = 4,
+  ID_ALTABS       = 5,
+  ID_VARIO        = 6,
+  ID_DIST         = 7,
+  ID_HEADING      = 8,
+  ID_COURSE       = 9,
+  ID_SATS         = 10,
+  ID_HDOP         = 11,
+  ID_PRESSURE     = 12,
+  ID_TEMPERATURE  = 13,
+  ID_HUMIDITY     = 14,
+  ID_V1           = 15,
+  ID_V2           = 16
+};
 
 // Sensor names and unit[EU]
 JETISENSOR_CONST sensorsEU[] PROGMEM =

@@ -3,7 +3,7 @@
             Jeti VarioGPS Sensor
   -----------------------------------------------------------
 */
-#define VARIOGPS_VERSION "V1.7"
+#define VARIOGPS_VERSION "     V1.7.1"
 /*
 
    Based on the "Jeti GPS Sensor" from Tero Salminen 2017
@@ -52,14 +52,9 @@
 #include <JetiExProtocol.h>
 #include "GpsSensor.h"
 #include <EEPROM.h>
+#include "BMx_Sensor.h"
 
-// Libraries for different sensor-modules
-#include <Adafruit_BMP085.h>
-#include <Adafruit_BMP280.h>
-#include <Adafruit_BME280.h>
-Adafruit_BMP085 bmp085;
-Adafruit_BMP280 bmp280;
-Adafruit_BME280 bme280;
+BMx_Sensor boschPressureSensor;
 
 GpsSensor gps;
 JetiExProtocol jetiEx;
@@ -100,50 +95,21 @@ enum gpsmodes{
   extended
 };
 
+// GPS
 struct {
   gpsmodes mode;
   bool distance3D;
 } gpsSettings;
 
-// Pressure sensor type
-enum senType {
-  unknown,
-  BMP085_BMP180,
-  BMP280,
-  BME280
-};
-
+// Pressure Sensor
 struct {
-  senType type = unknown;
+  int type = unknown;
   float filterX = 0.5;
   float filterY = 0.5;
   long deadzone = 0;
 } pressureSensor;
 
-enum
-{
-  ID_GPSLAT       = 1,
-  ID_GPSLON       = 2,
-  ID_GPSSPEED     = 3,
-  ID_ALTREL       = 4,
-  ID_ALTABS       = 5,
-  ID_VARIO        = 6,
-  ID_DIST         = 7,
-  ID_HEADING      = 8,
-  ID_COURSE       = 9,
-  ID_SATS         = 10,
-  ID_HDOP         = 11,
-  ID_PRESSURE     = 12,
-  ID_TEMPERATURE  = 13,
-  ID_HUMIDITY     = 14,
-  ID_V1           = 15,
-  ID_V2           = 16
-};
-
 #include "defaults.h"
-
-const int analogFaktor1 = 1024/(V_REF*(VOLTAGE1_R1+VOLTAGE1_R2)/VOLTAGE1_R2);
-const int analogFaktor2 = 1024/(V_REF*(VOLTAGE2_R1+VOLTAGE2_R2)/VOLTAGE2_R2);
 
 // Restart by user
 void(* resetFunc) (void) = 0;
@@ -159,27 +125,33 @@ void setup()
   volt2Enable = DEFAULT_VOLT2_ENABLE;
   
   // identify sensor
-  if (bmp085.begin()) {
-    pressureSensor.type = BMP085_BMP180;
-    pressureSensor.filterX = BMP085_FILTER_X;
-    pressureSensor.filterY = BMP085_FILTER_Y;
-    pressureSensor.deadzone = BMP085_DEADZONE;
-  } else if (bmp280.begin()) {
-    pressureSensor.type = BMP280;
-    pressureSensor.filterX = BMx280_FILTER_X;
-    pressureSensor.filterY = BMx280_FILTER_Y;
-    pressureSensor.deadzone = BMx280_DEADZONE;
-  } else if (bme280.begin()) {
-    pressureSensor.type = BME280;
-    pressureSensor.filterX = BMx280_FILTER_X;
-    pressureSensor.filterY = BMx280_FILTER_Y;
-    pressureSensor.deadzone = BMx280_DEADZONE;
+  pressureSensor.type = boschPressureSensor.begin(0x76);
+  if(pressureSensor.type == unknown){
+    pressureSensor.type = boschPressureSensor.begin(0x77);
   }
+  switch (pressureSensor.type){
+    case BMP085_BMP180:
+      pressureSensor.filterX = BMP085_FILTER_X;
+      pressureSensor.filterY = BMP085_FILTER_Y;
+      pressureSensor.deadzone = BMP085_DEADZONE;
+      break;
+    case BMP280:
+      pressureSensor.filterX = BMx280_FILTER_X;
+      pressureSensor.filterY = BMx280_FILTER_Y;
+      pressureSensor.deadzone = BMx280_DEADZONE;
+      break;
+    case BME280:
+      pressureSensor.filterX = BMx280_FILTER_X;
+      pressureSensor.filterY = BMx280_FILTER_Y;
+      pressureSensor.deadzone = BMx280_DEADZONE;
+      break;
+  }
+ 
 
   // read settings from eeprom
   if (EEPROM.read(0) != 0xFF) {
     units = EEPROM.read(0);
-  }
+  } 
   if (EEPROM.read(1) != 0xFF) {
     gpsSettings.mode = EEPROM.read(1);
   }
@@ -246,12 +218,12 @@ void setup()
     jetiEx.SetSensorActive( ID_HDOP, false, sensorsUS );
   }
 
-  if(!volt1Enable){
+  if(volt1Enable == false){
     jetiEx.SetSensorActive( ID_V1, false, sensorsEU );
     jetiEx.SetSensorActive( ID_V1, false, sensorsUS );
   }
 
-  if(!volt2Enable){
+  if(volt2Enable == false){
     jetiEx.SetSensorActive( ID_V2, false, sensorsEU );
     jetiEx.SetSensorActive( ID_V2, false, sensorsUS );
   }
@@ -269,26 +241,11 @@ void loop()
 {
   if(pressureSensor.type != unknown){
     // Read sensormodule values
-    switch (pressureSensor.type) {
-    case BMP085_BMP180 : {
-        uPressure = bmp085.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
-        curAltitude = bmp085.readAltitude(101325) * 100; // In Centimeter
-        uTemperature = bmp085.readTemperature() * 10; // In Celsius ( x10 for one decimal)
-        break;
-      }
-    case BMP280 : {
-        uPressure = bmp280.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
-        curAltitude = bmp280.readAltitude(1013.25) * 100; // In Centimeter
-        uTemperature = bmp280.readTemperature() * 10; // In Celsius ( x10 for one decimal)
-        break;
-      }
-    case BME280 : {
-        uPressure = bme280.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
-        curAltitude = bme280.readAltitude(1013.25) * 100; // In Centimeter
-        uTemperature = bme280.readTemperature() * 10; // In Celsius ( x10 for one decimal)
-        uHumidity = bme280.readHumidity() * 10; // In %rH
-        break;
-      }
+    uPressure = boschPressureSensor.readPressure(); // In Pascal (100 Pa = 1 hPa = 1 mbar)
+    curAltitude = boschPressureSensor.readAltitude() * 100; // In Centimeter
+    uTemperature = boschPressureSensor.readTemperature() * 10; // In Celsius ( x10 for one decimal)
+    if(pressureSensor.type == BME280){
+      uHumidity = boschPressureSensor.readHumidity() * 10; // In %rH
     }
   
     // Set start-altitude in sensor-start
@@ -439,11 +396,11 @@ void loop()
   jetiEx.SetSensorValue( ID_HUMIDITY, uHumidity );
 
   if(volt1Enable){
-    jetiEx.SetSensorValue( ID_V1, analogRead(PIN_V1)/analogFaktor1);
+    jetiEx.SetSensorValue( ID_V1, float(analogRead(PIN_V1)*V_REF/1024)*(float(VOLTAGE1_R1+VOLTAGE1_R2)/VOLTAGE1_R2)*100);
   }
 
   if(volt2Enable){
-    jetiEx.SetSensorValue( ID_V2, analogRead(PIN_V2)/analogFaktor2);
+    jetiEx.SetSensorValue( ID_V2, float(analogRead(PIN_V2)*V_REF/1024)*(float(VOLTAGE2_R1+VOLTAGE2_R2)/VOLTAGE2_R2)*100);
   }
 
   HandleMenu();

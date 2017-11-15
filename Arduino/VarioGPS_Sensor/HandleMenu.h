@@ -11,6 +11,7 @@ enum screenViews {
   resetAltitude,
   setGpsMode,
   setDistanceMode,
+  detectedPressureSensor,
   setVolt1,
   setVolt2,
   setUnits,
@@ -23,31 +24,41 @@ void HandleMenu()
 { 
   static int  _nMenu = aboutScreen;
   static bool _bSetDisplay = true;
+  static uint32_t LastKey;
   uint8_t c = jetiEx.GetJetiboxKey();
 
-  // 224 0xe0 : // RIGHT
-  // 112 0x70 : // LEFT
-  // 208 0xd0 : // UP
-  // 176 0xb0 : // DOWN
-  // 144 0x90 : // UP+DOWN
-  //  96 0x60 : // LEFT+RIGHT
+  enum
+  {
+    keyRight       = 0xe0,
+    keyLeft        = 0x70,
+    keyUp          = 0xd0,
+    keyDown        = 0xb0,
+    keyUpDown      = 0x90,
+    keyLeftRight   = 0x60
+  };
+
+  if( c == 0 && !_bSetDisplay) return;
+
+  if( millis() < LastKey ) 
+    return; 
+  LastKey = millis() + 200; 
 
   // Right
-  if ( c == 0xe0 && _nMenu < defaultSettings)
+  if ( c == keyRight && _nMenu < defaultSettings)
   {
     _nMenu++;
     _bSetDisplay = true;
   }
 
   // Left
-  if ( c == 0x70 &&  _nMenu > aboutScreen )
+  if ( c == keyLeft &&  _nMenu > aboutScreen )
   {
     _nMenu--;
     _bSetDisplay = true;
   }
 
   // DN
-  if ( c == 0xb0 )
+  if ( c == keyDown )
   {
     switch ( _nMenu )
     {
@@ -104,7 +115,7 @@ void HandleMenu()
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, VARIOGPS_VERSION );
       break;
     case resetAltitude:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Altitude Reset?" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset zero point" );
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Press: Down" );
       break;
     case setUnits:
@@ -116,12 +127,16 @@ void HandleMenu()
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
     case setGpsMode:
-      if(gpsSettings.mode == disabled){
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Disabled" );
-      }else if(gpsSettings.mode == basic){
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Basic" );
-      }else if(gpsSettings.mode == extended){
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Extended" );
+      switch (gpsSettings.mode){
+        case disabled:
+          jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Disabled" );
+          break;
+        case basic:
+          jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Basic" );
+          break;
+        case extended:
+          jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Extended" );
+          break;
       }  
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
@@ -132,6 +147,27 @@ void HandleMenu()
         jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS distance: 2D" );
       }
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
+      break;
+    case detectedPressureSensor:
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Pressure Sensor:" );
+      switch (pressureSensor.type) {
+        case unknown : {
+            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Not Detected!" );
+            break;
+          }
+        case BMP085_BMP180 : {
+            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found BMP085/180" );
+            break;
+          }
+        case BMP280 : {
+            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found BMP280" );
+            break;
+          }
+        case BME280 : {
+            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found BME280" );
+            break;
+          }
+      }
       break;
     case setVolt1:
       if(volt1Enable){
