@@ -107,12 +107,12 @@ void HandleMenu()
 
   if ( !_bSetDisplay )
     return;
-
+    
   switch ( _nMenu )
   {
     case aboutScreen:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "VarioGPS Sensor" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, VARIOGPS_VERSION );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, VARIOGPS_VERSION);
       break;
     case resetAltitude:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset zero point" );

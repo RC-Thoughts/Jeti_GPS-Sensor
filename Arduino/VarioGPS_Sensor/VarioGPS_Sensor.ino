@@ -3,7 +3,7 @@
             Jeti VarioGPS Sensor
   -----------------------------------------------------------
 */
-#define VARIOGPS_VERSION "     V1.7.1"
+#define VARIOGPS_VERSION "Version V1.7.2"
 /*
 
    Based on the "Jeti GPS Sensor" from Tero Salminen 2017

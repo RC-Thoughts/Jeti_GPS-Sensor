@@ -37,7 +37,7 @@ int BMx_Sensor::begin(uint8_t a) {
         _sensorTyp = BMP085_BMP180;
 
         oversampling = BMP085_ULTRAHIGHRES;
-        /* read calibration data */
+        // read calibration data 
         ac1 = read16(BMP085_CAL_AC1);
         ac2 = read16(BMP085_CAL_AC2);
         ac3 = read16(BMP085_CAL_AC3);
@@ -54,19 +54,66 @@ int BMx_Sensor::begin(uint8_t a) {
         break;   
       case 0x58:
         _sensorTyp = BMP280;
-        readCoefficients();
-        write8(BMP280_REGISTER_CONTROL, 0x3F);
+        BMx280_Init();
         break;      
       case 0x60:
         _sensorTyp = BME280;
-        readCoefficients();
-        write8(BMP280_REGISTER_CONTROL, 0x3F);
+        BMx280_Init();
         break;
       default:
         _sensorTyp = unknown;
         break;
     }
+  
   return _sensorTyp;
+}
+
+void BMx_Sensor::BMx280_Init(){
+
+  // reset the device using soft-reset
+  // this makes sure the IIR is off, etc.
+  write8(BMP280_REGISTER_SOFTRESET, 0xB6);
+
+  // wait for chip to wake up.
+  delay(100);
+    
+  readCoefficients(); // read trimming parameters
+
+  setSampling(); // use defaults
+}
+
+/**************************************************************************/
+/*!
+    @brief  setup sensor with given parameters / settings
+    
+    This is simply a overload to the normal begin()-function, so SPI users
+    don't get confused about the library requiring an address.
+*/
+/**************************************************************************/
+
+
+void BMx_Sensor::setSampling(sensor_mode       mode,
+                             sensor_sampling   tempSampling,
+                             sensor_sampling   pressSampling,
+                             sensor_sampling   humSampling,
+                             sensor_filter     filter,
+                             standby_duration  duration) 
+                             {
+   
+    _measReg.mode     = mode;
+    _measReg.osrs_t   = tempSampling;
+    _measReg.osrs_p   = pressSampling;
+        
+    
+    _humReg.osrs_h    = humSampling;
+    _configReg.filter = filter;
+    _configReg.t_sb   = duration;
+    
+    // you must make sure to also set REGISTER_CONTROL after setting the
+    // CONTROLHUMID register, otherwise the values won't be applied (see DS 5.4.3)
+    if(_sensorTyp == BME280)write8(BME280_REGISTER_CONTROLHUMID, _humReg.get());
+    write8(BMP280_REGISTER_CONFIG, _configReg.get());
+    write8(BMP280_REGISTER_CONTROL, _measReg.get());
 }
 
 
@@ -371,7 +418,7 @@ float BMx_Sensor::readHumidity(void) {
     v_x1_u32r = (v_x1_u32r < 0) ? 0 : v_x1_u32r;
     v_x1_u32r = (v_x1_u32r > 419430400) ? 419430400 : v_x1_u32r;
     float h = (v_x1_u32r>>12);
-    return  h / 1024.0;
+    return h / 1024.0;
 }
 
 /**************************************************************************/
