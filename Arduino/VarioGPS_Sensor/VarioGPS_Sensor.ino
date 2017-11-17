@@ -3,13 +3,14 @@
             Jeti VarioGPS Sensor
   -----------------------------------------------------------
 */
-#define VARIOGPS_VERSION "Version V1.8"
+#define VARIOGPS_VERSION "Version V1.9"
 /*
 
-  Hardware:
+  Unterstützte Hardware:
   - Arduino Pro Mini 8Mhz 3.3V
-  - Ublox GPS-Modul mit 9600baud
-  - Barometer Modul mit BMP280, BME280, MS5611, LPS
+  - GPS-Modul mit UART@9600baud
+  - Luftdrucksensoren: BMP280, BME280, MS5611, LPS
+  - Stromsensoren: ACS758_50B, ACS758_100B, ACS758_150B, ACS758_200B, ACS758_50U, ACS758_100U, ACS758_150U, ACS758_200U
   
   
   Ohne GPS mit Barometer werden die Werte angezeigt:
@@ -35,14 +36,14 @@
   - Temperatur
   - Luftfeuchtigkeit 
   
-  Zusätzlich können bis zu 4 Spannungen gemessen werden
+  Zusätzlich können bis zu vier Spannungen[V] oder vier Ströme[A] gemessen werden.
   
   Folgende Einstellungen können per Jetibox vorgenommen werden:
   
   - GPS: deaktiviert, Basic oder Extended
   - GPS Distanz: 2D oder 3D
-  - Filterparameter X, Y und Deadzone
-  - Spannungsmessungen 1-4 de-/aktiviert
+  - Vario Filterparameter X, Y und Deadzone
+  - Analogeingänge 1-4 konfigurierbar (deaktiviert, Spannungs- oder Strommessung)
    
 */
 
@@ -83,10 +84,6 @@ long uRelAltitude = 0;
 long uAbsAltitude = 0;
 int uHumidity = 0;
 
-// EU/US Units
-enum unitType {EU, US};
-unitType units;
-
 // GPS
 enum {
   GPS_disabled,
@@ -99,15 +96,7 @@ struct {
   bool distance3D;
 } gpsSettings;
 
-
-// Pressure Sensors
-enum {
-  unknown,
-  BMP280,
-  BME280,
-  MS5611,
-  LPS
-};
+#include "defaults.h"
 
 struct {
   uint8_t type = unknown;
@@ -117,14 +106,10 @@ struct {
 } pressureSensor;
 
 
-// Analog input
-enum {
-  analog_disabled,
-  analog_enabled
-};
-
-#include "defaults.h"
-
+const float factorVoltageDivider[MAX_ANALOG_INPUTS] PROGMEM = { (analogInputR1[0]+analogInputR2[0])/analogInputR2[0],
+                                                                (analogInputR1[1]+analogInputR2[1])/analogInputR2[1],
+                                                                (analogInputR1[2]+analogInputR2[2])/analogInputR2[2],
+                                                                (analogInputR1[3]+analogInputR2[3])/analogInputR2[3]  };
 uint8_t analogInputMode[MAX_ANALOG_INPUTS];
 
 // Restart by user
@@ -132,10 +117,28 @@ void(* resetFunc) (void) = 0;
 
 #include "HandleMenu.h"
 
+/*
+float calcAmp(uint8_t analogIn){
+  uint16_t ACSoffset;
+  
+  if(analogInputMode[analogIn] < ACS758_50B){
+    return 0;
+  }else if (analogInputMode[analogIn] > ACS758_200B){
+    ACSoffset = ACS_U_offset;
+  }else if(analogInputMode[analogIn] > voltage){
+    ACSoffset = ACS_B_offset;
+  }
+  
+  //float Voltage = (analogRead(analogInputPin[analogIn]) / 1023.0) * ACSoffset; // mV
+  float Voltage = (415 / 1023.0) * ACSoffset; // mV
+  uint8_t mVindex = analogInputMode[analogIn];
+  return ACS_mVperAmp[mVindex];
+  //return ((Voltage - ACSoffset) / ACS_mVperAmp[analogInputMode[analogIn]-2]);
+}*/
+
 void setup()
 {
   // set defaults
-  units = DEFAULT_UNIT;
   gpsSettings.mode = DEFAULT_GPS_MODE;
   gpsSettings.distance3D = DEFAULT_GPS_3D_DISTANCE;
   analogInputMode[0] = DEFAULT_MODE_ANALOG_1;
@@ -186,10 +189,7 @@ void setup()
   }
  
 
-  // read settings from eeprom
-  if (EEPROM.read(0) != 0xFF) {
-    units = EEPROM.read(0);
-  } 
+  // read settings from eeprom 
   if (EEPROM.read(1) != 0xFF) {
     gpsSettings.mode = EEPROM.read(1);
   }
@@ -216,68 +216,50 @@ void setup()
 
   // Setup sensors
   if(pressureSensor.type == unknown){
-    jetiEx.SetSensorActive( ID_VARIO, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_VARIO, false, sensorsUS );
+    jetiEx.SetSensorActive( ID_VARIO, false, sensors );
   }
   
   if(gpsSettings.mode == GPS_basic || pressureSensor.type != BME280){
-    jetiEx.SetSensorActive( ID_HUMIDITY, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_HUMIDITY, false, sensorsUS );
+    jetiEx.SetSensorActive( ID_HUMIDITY, false, sensors );
   }
   if(gpsSettings.mode == GPS_basic || pressureSensor.type == unknown){
-    jetiEx.SetSensorActive( ID_PRESSURE, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_TEMPERATURE, false, sensorsEU );
-
-    jetiEx.SetSensorActive( ID_PRESSURE, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_TEMPERATURE, false, sensorsUS );
+    jetiEx.SetSensorActive( ID_PRESSURE, false, sensors );
+    jetiEx.SetSensorActive( ID_TEMPERATURE, false, sensors );
   }
 
   if(gpsSettings.mode == GPS_disabled){
-    jetiEx.SetSensorActive( ID_GPSLAT, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_GPSLON, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_GPSSPEED, false, sensorsEU );
-
-    jetiEx.SetSensorActive( ID_GPSLAT, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_GPSLON, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_GPSSPEED, false, sensorsUS );
+    jetiEx.SetSensorActive( ID_GPSLAT, false, sensors );
+    jetiEx.SetSensorActive( ID_GPSLON, false, sensors );
+    jetiEx.SetSensorActive( ID_GPSSPEED, false, sensors );
   }
 
   if(gpsSettings.mode == GPS_disabled && pressureSensor.type == unknown){
-    jetiEx.SetSensorActive( ID_ALTREL, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_ALTABS, false, sensorsEU );
-
-    jetiEx.SetSensorActive( ID_ALTREL, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_ALTABS, false, sensorsUS );
+    jetiEx.SetSensorActive( ID_ALTREL, false, sensors );
+    jetiEx.SetSensorActive( ID_ALTABS, false, sensors );
   }
   
   if(gpsSettings.mode != GPS_extended){
-    jetiEx.SetSensorActive( ID_DIST, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_HEADING, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_COURSE, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_SATS, false, sensorsEU );
-    jetiEx.SetSensorActive( ID_HDOP, false, sensorsEU );
-
-    jetiEx.SetSensorActive( ID_DIST, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_HEADING, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_COURSE, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_SATS, false, sensorsUS );
-    jetiEx.SetSensorActive( ID_HDOP, false, sensorsUS );
+    jetiEx.SetSensorActive( ID_DIST, false, sensors );
+    jetiEx.SetSensorActive( ID_HEADING, false, sensors );
+    jetiEx.SetSensorActive( ID_COURSE, false, sensors );
+    jetiEx.SetSensorActive( ID_SATS, false, sensors );
+    jetiEx.SetSensorActive( ID_HDOP, false, sensors );
   }
 
   for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
-    if (analogInputMode[i] == analog_disabled) {
-      jetiEx.SetSensorActive( ID_V1+i, false, sensorsEU );
-      jetiEx.SetSensorActive( ID_V1+i, false, sensorsUS );
+    if (analogInputMode[i] > voltage) {
+      jetiEx.SetSensorActive( ID_V1+i, false, sensors );
+    }else if(analogInputMode[i] == voltage){
+      jetiEx.SetSensorActive( ID_A1+i, false, sensors );
+    }else{
+      jetiEx.SetSensorActive( ID_V1+i, false, sensors );
+      jetiEx.SetSensorActive( ID_A1+i, false, sensors );
     }
   }
 
   jetiEx.SetDeviceId( 0x76, 0x32 );
 
-  if (units == EU) {
-    jetiEx.Start( "GPS", sensorsEU, JetiExProtocol::SERIAL2 );
-  }else{
-    jetiEx.Start( "GPS", sensorsUS, JetiExProtocol::SERIAL2 );
-  }
+  jetiEx.Start( "GPS", sensors, JetiExProtocol::SERIAL2 );
 }
 
 void loop()
@@ -354,11 +336,11 @@ void loop()
     if (fix) {
       lat = gps.GetLat();
       lng = gps.GetLon();
-      if (units == EU) {
-        jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedKm() );
-      }else{
+      #ifdef UNIT_US
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedMi() );
-      }
+      #else
+        jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedKm() );
+      #endif
       jetiEx.SetSensorValue( ID_HEADING, gps.GetCourseDeg() );
   
       if (!homeSet && homeTime > 0 && (homeTime < millis())) {
@@ -418,20 +400,19 @@ void loop()
     jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
     jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
   }
-  
-  // EU to US conversions
-  // ft/s = m/s / 0.3048
-  // inHG = hPa * 0,029529983071445
-  // ft = m / 0.3048
-  if (units == US) {
+
+  #ifdef UNIT_US
+    // EU to US conversions
+    // ft/s = m/s / 0.3048
+    // inHG = hPa * 0,029529983071445
+    // ft = m / 0.3048
     uRelAltitude /= 0.3048;
     uAbsAltitude /= 0.3048;
     uVario /= 0.3048;
     distToHome *= 3.2808399;
     uPressure *= 0.029529983071445;
     uTemperature = uTemperature * 1.8 + 320;
-  } 
-    
+  #endif
   
   jetiEx.SetSensorValue( ID_ALTREL, uRelAltitude );
   jetiEx.SetSensorValue( ID_ALTABS, uAbsAltitude );
@@ -441,9 +422,21 @@ void loop()
   jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
   jetiEx.SetSensorValue( ID_HUMIDITY, uHumidity );
 
+  // analog input
   for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
-    if (analogInputMode[i] == analog_enabled) {
-      jetiEx.SetSensorValue( ID_V1+i, float(analogRead(analogInputPin[i])*V_REF/1024)*(float(analogInputR1[i]+analogInputR2[i])/analogInputR2[i])*100);
+    if (analogInputMode[i] == voltage){
+      jetiEx.SetSensorValue( ID_V1+i, (analogRead(analogInputPin[i])/1023.0)*V_REF*factorVoltageDivider[i]/10);
+    }else if(analogInputMode[i] > voltage){
+      uint16_t ACSoffset;
+  
+      if (analogInputMode[i] > ACS758_200B){
+        ACSoffset = ACS_U_offset;
+      }else{
+        ACSoffset = ACS_B_offset;
+      }
+
+      float Voltage = (analogRead(analogInputPin[i]) / 1023.0) * V_REF; // mV  
+      jetiEx.SetSensorValue( ID_A1+i, ((Voltage - ACSoffset) / ACS_mVperAmp[analogInputMode[i]-2])*10);
     }
   }
 

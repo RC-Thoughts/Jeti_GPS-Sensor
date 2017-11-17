@@ -19,7 +19,6 @@ enum screenViews {
   setAnalog2,
   setAnalog3,
   setAnalog4,
-  setUnits,
   saveSettings,
   defaultSettings
 };
@@ -86,6 +85,14 @@ void HandleMenu()
         }
         break;
     }
+    if(_nMenu >= setAnalog1 && _nMenu <= setAnalog4){
+      if(analogInputMode[_nMenu-setAnalog1] == analog_disabled){
+        analogInputMode[_nMenu-setAnalog1] = ACS758_200U;
+      }else{
+        analogInputMode[_nMenu-setAnalog1]--;
+      }
+    }
+    
     _bSetDisplay = true;
   }
   
@@ -96,13 +103,6 @@ void HandleMenu()
     {
       case resetAltitude:
         resetFunc();
-      case setUnits:
-        if(units == EU){
-          units = US;
-        }else{
-          units = EU;
-        }
-        break;
       case setGpsMode:
         gpsSettings.mode++;
         if(gpsSettings.mode > GPS_extended){
@@ -128,7 +128,6 @@ void HandleMenu()
         }
         break;
       case saveSettings:
-        EEPROM.write(0, units);
         EEPROM.write(1, gpsSettings.mode);
         EEPROM.write(2, gpsSettings.distance3D);
         for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
@@ -145,7 +144,10 @@ void HandleMenu()
         resetFunc();
     }
     if(_nMenu >= setAnalog1 && _nMenu <= setAnalog4){
-      analogInputMode[_nMenu-setAnalog1] = !analogInputMode[_nMenu-setAnalog1];
+      analogInputMode[_nMenu-setAnalog1]++;
+      if(analogInputMode[_nMenu-setAnalog1] > ACS758_200U){
+        analogInputMode[_nMenu-setAnalog1] = analog_disabled;
+      }
     }
   
     _bSetDisplay = true;
@@ -163,14 +165,6 @@ void HandleMenu()
     case resetAltitude:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset zero point" );
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Press: Down" );
-      break;
-    case setUnits:
-      if(units == EU){
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Units: \x45\x55\x28\x6D\x2C\xDF\x43\x29" );
-      }else{
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Units: \x55\x53\x28\x66\x74\x2C\xDF\x46\x29" );
-      }
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
     case setGpsMode:
       switch (gpsSettings.mode){
@@ -244,15 +238,42 @@ void HandleMenu()
   }
   if(_nMenu >= setAnalog1 && _nMenu <= setAnalog4){
     //sprintf( _buffer, "Volt%c:", analogInCount );
-    strcpy( _buffer, "Volt : ");
-    _buffer[4] = _nMenu-setAnalog1+49;
-    if(analogInputMode[_nMenu-setAnalog1] == analog_enabled){
-      strcpy( _buffer + strlen(_buffer), "Enabled");
-    }else{
-      strcpy( _buffer + strlen(_buffer), "Disabled");
-    }  
+    strcpy( _buffer, "A : ");
+    _buffer[1] = _nMenu-setAnalog1+49;
+    switch(analogInputMode[_nMenu-setAnalog1]){
+      case analog_disabled:
+        strcpy( _buffer + strlen(_buffer), "Disabled");
+        break;
+      case voltage:
+        strcpy( _buffer + strlen(_buffer), "Voltage");
+        break;
+      case ACS758_50B:
+        strcpy( _buffer + strlen(_buffer), "ACS758-50B");
+        break;
+      case ACS758_100B:
+        strcpy( _buffer + strlen(_buffer), "ACS758-100B");
+        break;
+      case ACS758_150B:
+        strcpy( _buffer + strlen(_buffer), "ACS758-150B");
+        break;
+      case ACS758_200B:
+        strcpy( _buffer + strlen(_buffer), "ACS758-200B");
+        break;
+      case ACS758_50U:
+        strcpy( _buffer + strlen(_buffer), "ACS758-50U");
+        break;
+      case ACS758_100U:
+        strcpy( _buffer + strlen(_buffer), "ACS758-100U");
+        break;
+      case ACS758_150U:
+        strcpy( _buffer + strlen(_buffer), "ACS758-150U");
+        break;
+      case ACS758_200U:
+        strcpy( _buffer + strlen(_buffer), "ACS758-200U");
+        break;
+    } 
     jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _buffer );
-    jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
+    jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Up/Down" );
   }
   _bSetDisplay = false;
 }
