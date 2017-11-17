@@ -7,31 +7,33 @@
 // **** Sensor defaults ****
 #define DEFAULT_UNIT              EU
 
-#define DEFAULT_GPS_MODE          disabled   //disabled, basic, extended
+#define DEFAULT_GPS_MODE          GPS_disabled        //GPS_disabled, GPS_basic, GPS_extended
 #define DEFAULT_GPS_3D_DISTANCE   true
 
-#define DEFAULT_VOLT1_ENABLE      false
-#define DEFAULT_VOLT2_ENABLE      false
+#define DEFAULT_MODE_ANALOG_1     analog_disabled     //analog_disabled, analog_enabled
+#define DEFAULT_MODE_ANALOG_2     analog_disabled
+#define DEFAULT_MODE_ANALOG_3     analog_disabled
+#define DEFAULT_MODE_ANALOG_4     analog_disabled
+
 
 // Sensor IDs
 enum
 {
-  ID_GPSLAT       = 1,
-  ID_GPSLON       = 2,
-  ID_GPSSPEED     = 3,
-  ID_ALTREL       = 4,
-  ID_ALTABS       = 5,
-  ID_VARIO        = 6,
-  ID_DIST         = 7,
-  ID_HEADING      = 8,
-  ID_COURSE       = 9,
-  ID_SATS         = 10,
-  ID_HDOP         = 11,
-  ID_PRESSURE     = 12,
-  ID_TEMPERATURE  = 13,
-  ID_HUMIDITY     = 14,
-  ID_V1           = 15,
-  ID_V2           = 16
+  ID_GPSLAT = 1,
+  ID_GPSLON,
+  ID_GPSSPEED,
+  ID_ALTREL,
+  ID_ALTABS,
+  ID_VARIO,
+  ID_DIST,
+  ID_HEADING,
+  ID_COURSE,
+  ID_SATS,
+  ID_HDOP,
+  ID_PRESSURE,
+  ID_TEMPERATURE,
+  ID_HUMIDITY,
+  ID_V1,  ID_V2, ID_V3,  ID_V4
 };
 
 // Sensor names and unit[EU]
@@ -54,6 +56,8 @@ JETISENSOR_CONST sensorsEU[] PROGMEM =
   { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { ID_V1,          "Voltage1",   "V",          JetiSensor::TYPE_14b, 2 },
   { ID_V2,          "Voltage2",   "V",          JetiSensor::TYPE_14b, 2 },
+  { ID_V3,          "Voltage3",   "V",          JetiSensor::TYPE_14b, 2 },
+  { ID_V4,          "Voltage4",   "V",          JetiSensor::TYPE_14b, 2 },
   { 0 }
 };
 
@@ -77,9 +81,10 @@ JETISENSOR_CONST sensorsUS[] PROGMEM =
   { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { ID_V1,          "Voltage1",   "V",          JetiSensor::TYPE_14b, 2 },
   { ID_V2,          "Voltage2",   "V",          JetiSensor::TYPE_14b, 2 },
+  { ID_V3,          "Voltage3",   "V",          JetiSensor::TYPE_14b, 2 },
+  { ID_V4,          "Voltage4",   "V",          JetiSensor::TYPE_14b, 2 },
   { 0 }
 };
-
 
 
 // **** Vario settings ****
@@ -87,15 +92,20 @@ JETISENSOR_CONST sensorsUS[] PROGMEM =
 // Vario lowpass filter and
 // dead zone filter in centimeter (Even if you use US-units!)
 
-// BMP085/BMP180
-#define BMP085_FILTER_X 0.5
-#define BMP085_FILTER_Y 0.5
-#define BMP085_DEADZONE 0
+// BMP280/BME280
+#define BMx280_FILTER_X 0.93
+#define BMx280_FILTER_Y 0.11
+#define BMx280_DEADZONE 5
 
-// BMP280/BMP280
-#define BMx280_FILTER_X 0.88
-#define BMx280_FILTER_Y 0.15
-#define BMx280_DEADZONE 3
+// MS5611
+#define MS5611_FILTER_X 0.8
+#define MS5611_FILTER_Y 0.2
+#define MS5611_DEADZONE 0
+
+// LPS (LPS311)
+#define LPS_FILTER_X 0.8
+#define LPS_FILTER_Y 0.2
+#define LPS_DEADZONE 0
 
 
 // **** Voltage settings ****
@@ -103,16 +113,13 @@ JETISENSOR_CONST sensorsUS[] PROGMEM =
 // reference voltage for the ADC
 #define V_REF   3.3
 
-// Analog Pin
-#define PIN_V1  0
-#define PIN_V2  1
+// number of analog inputs
+#define MAX_ANALOG_INPUTS     4
+                                         //  Analog1     Analog2     Analog3     Analog4
+const uint8_t analogInputPin[] PROGMEM = {        0,          1,          2,          3  };
 
-// voltage divider resistors in Ohms
-#define VOLTAGE1_R1   20000
-#define VOLTAGE1_R2   10000
-
-#define VOLTAGE2_R1   20000
-#define VOLTAGE2_R2   10000
+const uint8_t analogInputR1[] PROGMEM = {     20000,      20000,      20000,      20000  };
+const uint8_t analogInputR2[] PROGMEM = {     10000,      10000,      10000,      10000  };
 
 /*
 
