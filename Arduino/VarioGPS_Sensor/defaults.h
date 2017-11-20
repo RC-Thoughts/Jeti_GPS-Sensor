@@ -4,34 +4,6 @@
   -----------------------------------------------------------
 */
 
-// **** Sensor defaults ****
-
-//#define UNIT_US                                     //uncomment for US units
-
-#define DEFAULT_GPS_MODE          GPS_disabled        //GPS_disabled, GPS_basic, GPS_extended
-#define DEFAULT_GPS_3D_DISTANCE   true
-
-
-// Analog input modes
-enum {
-  analog_disabled,
-  voltage,
-  ACS758_50B,
-  ACS758_100B,
-  ACS758_150B,
-  ACS758_200B,
-  ACS758_50U,
-  ACS758_100U,
-  ACS758_150U,
-  ACS758_200U
-};
-
-#define DEFAULT_MODE_ANALOG_1     analog_disabled     
-#define DEFAULT_MODE_ANALOG_2     analog_disabled
-#define DEFAULT_MODE_ANALOG_3     analog_disabled
-#define DEFAULT_MODE_ANALOG_4     analog_disabled
-
-
 // Sensor IDs
 enum
 {
@@ -42,6 +14,7 @@ enum
   ID_ALTABS,
   ID_VARIO,
   ID_DIST,
+  ID_TRIP,
   ID_HEADING,
   ID_COURSE,
   ID_SATS,
@@ -50,7 +23,8 @@ enum
   ID_TEMPERATURE,
   ID_HUMIDITY,
   ID_V1, ID_V2, ID_V3, ID_V4,
-  ID_A1, ID_A2, ID_A3, ID_A4
+  ID_A1, ID_A2, ID_A3, ID_A4,
+  ID_C1, ID_C2, ID_C3, ID_C4
 };
 
 // Sensor names and unit[EU]
@@ -65,6 +39,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
   { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_30b, 2 },
   { ID_DIST,        "Distance",   "m",          JetiSensor::TYPE_14b, 0 },
+  { ID_TRIP,        "Trip",       "km",         JetiSensor::TYPE_14b, 2 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
@@ -80,6 +55,10 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_A2,          "Current2",   "A",          JetiSensor::TYPE_14b, 1 },
   { ID_A3,          "Current3",   "A",          JetiSensor::TYPE_14b, 1 },
   { ID_A4,          "Current4",   "A",          JetiSensor::TYPE_14b, 1 },
+  { ID_C1,          "Capacity1",  "mAh",        JetiSensor::TYPE_22b, 0 },
+  { ID_C2,          "Capacity2",  "mAh",        JetiSensor::TYPE_22b, 0 },
+  { ID_C3,          "Capacity3",  "mAh",        JetiSensor::TYPE_22b, 0 },
+  { ID_C4,          "Capacity4",  "mAh",        JetiSensor::TYPE_22b, 0 },
   { 0 }
 };
 #endif
@@ -97,6 +76,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
   { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_30b, 2 }, 
   { ID_DIST,        "Distance",   "ft.",        JetiSensor::TYPE_14b, 0 },
+  { ID_TRIP,        "Trip",       "mi",         JetiSensor::TYPE_14b, 2 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
@@ -112,9 +92,38 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_A2,          "Current2",   "A",          JetiSensor::TYPE_14b, 1 },
   { ID_A3,          "Current3",   "A",          JetiSensor::TYPE_14b, 1 },
   { ID_A4,          "Current4",   "A",          JetiSensor::TYPE_14b, 1 },
+  { ID_C1,          "Capacity1",  "mAh",        JetiSensor::TYPE_22b, 0 },
+  { ID_C2,          "Capacity2",  "mAh",        JetiSensor::TYPE_22b, 0 },
+  { ID_C3,          "Capacity3",  "mAh",        JetiSensor::TYPE_22b, 0 },
+  { ID_C4,          "Capacity4",  "mAh",        JetiSensor::TYPE_22b, 0 },
   { 0 }
 };
 #endif
+
+// GPS
+enum {
+  GPS_disabled,
+  GPS_basic,
+  GPS_extended
+};
+
+
+// **** Supported features ****
+
+//uncomment to enable
+
+//#define UNIT_US
+#define SUPPLY_VOLTAGE_3V3 
+//#define SUPPLY_VOLTAGE_5V        
+#define SUPPORT_BMx280     
+#define SUPPORT_MS5611_LPS                               
+
+
+
+// **** General settings ****
+
+#define MEASURING_INTERVAL        150                 //ms
+
 
 
 // **** Vario settings ****
@@ -124,8 +133,8 @@ enum {
   unknown,
   BMP280,
   BME280,
-  MS5611,
-  LPS
+  MS5611_,
+  LPS_
 };
 
 // Vario lowpass filter and
@@ -149,8 +158,46 @@ enum {
 
 // **** Analog inputs settings ****
 
-// reference voltage for the ADC
-#define V_REF               3300
+// Supply voltage
+
+#ifdef SUPPLY_VOLTAGE_3V3   
+  #define V_REF               3300
+
+  // suported analog input modes @3.3V
+  enum {
+    analog_disabled,
+    voltage,
+    ACS758_50B,
+    ACS758_100B,
+    ACS758_150B,
+    ACS758_200B,
+    ACS758_50U,
+    ACS758_100U,
+    ACS758_150U,
+    ACS758_200U
+  };
+#endif
+
+#ifdef SUPPLY_VOLTAGE_5V  
+  #define V_REF               5000
+
+  // suported analog input modes @5V
+  enum {
+    analog_disabled,
+    voltage,
+    ACS712_05,
+    ACS712_20,
+    ACS712_30,
+    ACS758_50B,
+    ACS758_100B,
+    ACS758_150B,
+    ACS758_200B,
+    ACS758_50U,
+    ACS758_100U,
+    ACS758_150U,
+    ACS758_200U
+  };
+#endif
 
 // number of analog inputs
 #define MAX_ANALOG_INPUTS   4
@@ -187,11 +234,38 @@ const uint16_t analogInputR2[] {   10000,       10000,      10000,      10000  }
 
 // **** Current measurement settings ****
 
-const uint16_t ACS_B_offset = 1650; //bi-directional offset in mV
-const uint16_t ACS_U_offset = 396;  //uni-directional offset in mV
+#ifdef SUPPLY_VOLTAGE_3V3 
+  const uint16_t ACS_B_offset = 1650; //bi-directional offset in mV ( V_REF / 2)
+  const uint16_t ACS_U_offset = 396;  //uni-directional offset in mV ( V_REF / 8.33)
 
-// ACS Sensor                    //  ACS758-50B   ACS758-100B   ACS758-150B   ACS758-200B   ACS758-50U    ACS758-100U   ACS758-150U   ACS758-200U
-const uint8_t ACS_mVperAmp[] =  {    40,          20,           13,           10,           60,           40,           27,           20          };   //mV per Amp
+  // ACS Sensor                    //  ACS758-50    ACS758-100    ACS758-150    ACS758-200    
+  const uint8_t ACS_mVperAmp[] =  {    40,          20,           13,           10,               //bi-directional type, mV per Amp
+                                       60,          40,           27,           20          };    //uni-directional type, mV per Amp
+#endif
+
+#ifdef SUPPLY_VOLTAGE_5V 
+  const uint16_t ACS_B_offset = 2500; //bi-directional offset in mV ( V_REF / 2)
+  const uint16_t ACS_U_offset = 600;  //uni-directional offset in mV ( V_REF / 8.33)
+
+  // at 5V supply, additional ACS712 types are supported
+  // ACS Sensor                    //  ACS712-05    ACS712-20    ACS712-30     ACS758-50    ACS758-100    ACS758-150    ACS758-200    
+  const uint8_t ACS_mVperAmp[] =  {    185,         100,         66,           40,          20,           13,           10,               //bi-directional type, mV per Amp
+                                                                               60,          40,           27,           20          };    //uni-directional type, mV per Amp
+#endif
+
+
+
+// **** Defaults settings ****
+
+#define DEFAULT_GPS_MODE          GPS_disabled        //GPS_disabled, GPS_basic, GPS_extended
+#define DEFAULT_GPS_3D_DISTANCE   true
+
+#define DEFAULT_MODE_ANALOG_1     analog_disabled     
+#define DEFAULT_MODE_ANALOG_2     analog_disabled
+#define DEFAULT_MODE_ANALOG_3     analog_disabled
+#define DEFAULT_MODE_ANALOG_4     analog_disabled
+
+
 
 
 

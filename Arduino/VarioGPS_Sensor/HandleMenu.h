@@ -163,7 +163,7 @@ void HandleMenu()
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, VARIOGPS_VERSION);
       break;
     case resetAltitude:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset zero point" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset offset" );
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Press: Down" );
       break;
     case setGpsMode:
@@ -201,10 +201,10 @@ void HandleMenu()
         case BME280:
             jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found BME280" );
             break;
-        case MS5611:
+        case MS5611_:
             jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found MS5611" );
             break;
-        case LPS:
+        case LPS_:
             jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found LPS" );
             break;
       }
@@ -247,6 +247,17 @@ void HandleMenu()
       case voltage:
         strcpy( _buffer + strlen(_buffer), "Voltage");
         break;
+      #ifdef SUPPLY_VOLTAGE_5V 
+        case ACS712_05:
+          strcpy( _buffer + strlen(_buffer), "ACS712-05");
+          break;
+        case ACS712_20:
+          strcpy( _buffer + strlen(_buffer), "ACS712-20");
+          break;
+        case ACS712_30:
+          strcpy( _buffer + strlen(_buffer), "ACS712-30");
+          break;
+      #endif
       case ACS758_50B:
         strcpy( _buffer + strlen(_buffer), "ACS758-50B");
         break;
