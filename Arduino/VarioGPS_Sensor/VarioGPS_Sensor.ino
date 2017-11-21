@@ -3,7 +3,7 @@
             Jeti VarioGPS Sensor
   -----------------------------------------------------------
 */
-#define VARIOGPS_VERSION "Version V2.0"
+#define VARIOGPS_VERSION "Version V2.0.1"
 /*
 
   Unterstützte Hardware:
@@ -85,10 +85,10 @@ struct {
 } pressureSensor;
 
 
-const float factorVoltageDivider[MAX_ANALOG_INPUTS] = { (analogInputR1[0]+analogInputR2[0])/analogInputR2[0],
-                                                        (analogInputR1[1]+analogInputR2[1])/analogInputR2[1],
-                                                        (analogInputR1[2]+analogInputR2[2])/analogInputR2[2],
-                                                        (analogInputR1[3]+analogInputR2[3])/analogInputR2[3]  };
+const float factorVoltageDivider[MAX_ANALOG_INPUTS] = { float(analogInputR1[0]+analogInputR2[0])/analogInputR2[0],
+                                                        float(analogInputR1[1]+analogInputR2[1])/analogInputR2[1],
+                                                        float(analogInputR1[2]+analogInputR2[2])/analogInputR2[2],
+                                                        float(analogInputR1[3]+analogInputR2[3])/analogInputR2[3]  };
 
 const float timefactorPowerConsumption = (1000.0/MEASURING_INTERVAL*60*60)/1000;
 uint8_t analogInputMode[MAX_ANALOG_INPUTS];
@@ -155,7 +155,6 @@ void setup()
       break;
   }
  
-
   // read settings from eeprom 
   if (EEPROM.read(1) != 0xFF) {
     gpsSettings.mode = EEPROM.read(1);
@@ -260,6 +259,7 @@ void loop()
   if((millis() - lastTime) > MEASURING_INTERVAL){
     
     if(pressureSensor.type != unknown){
+      static bool setStartAltitude = false;
       long curAltitude = 0;
       long uPressure = 0;
       int uTemperature = 0;
@@ -291,9 +291,19 @@ void loop()
           break;
         #endif
       }
+
+      if (!setStartAltitude) {
+        // Set start-altitude in sensor-start
+        setStartAltitude = true;
+        startAltitude = curAltitude;
+        lastAltitude = curAltitude;
+      }else{
+        // Altitude
+        uRelAltitude = (curAltitude - startAltitude) / 10;
+        uAbsAltitude = curAltitude / 100;
+      }
        
       uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
-      
       lastAltitude = curAltitude;
     
       // Vario Filter
@@ -311,16 +321,6 @@ void loop()
         uVario -= (pressureSensor.deadzone * -1);
       } else {
         uVario = 0;
-      }
-      
-      if (millis() < 5500) {
-        // Set start-altitude in sensor-start
-        startAltitude = curAltitude;
-        lastVariofilter = 0;
-      }else{
-        // Altitude
-        uRelAltitude = (curAltitude - startAltitude) / 10;
-        uAbsAltitude = curAltitude / 100;
       }
 
       #ifdef UNIT_US

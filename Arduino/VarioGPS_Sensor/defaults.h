@@ -113,8 +113,8 @@ enum {
 //uncomment to enable
 
 //#define UNIT_US
-#define SUPPLY_VOLTAGE_3V3 
-//#define SUPPLY_VOLTAGE_5V        
+//#define SUPPLY_VOLTAGE_3V3 
+#define SUPPLY_VOLTAGE_5V        
 #define SUPPORT_BMx280     
 #define SUPPORT_MS5611_LPS                               
 
@@ -122,7 +122,7 @@ enum {
 
 // **** General settings ****
 
-#define MEASURING_INTERVAL        150                 //ms
+#define MEASURING_INTERVAL        180                 //ms
 
 
 
@@ -141,8 +141,8 @@ enum {
 // dead zone filter in centimeter (Even if you use US-units!)
 
 // BMP280/BME280
-#define BMx280_FILTER_X 0.93
-#define BMx280_FILTER_Y 0.11
+#define BMx280_FILTER_X 0.88 //0.93
+#define BMx280_FILTER_Y 0.15 //0.11
 #define BMx280_DEADZONE 5
 
 // MS5611
@@ -201,16 +201,16 @@ enum {
 
 // number of analog inputs
 #define MAX_ANALOG_INPUTS   4
-                                         //  Analog1     Analog2     Analog3     Analog4
-const uint8_t analogInputPin[] PROGMEM = {        0,          1,          2,          3  };   //Analog Pin
+                                //  Analog1     Analog2     Analog3     Analog4
+const uint8_t analogInputPin[] = {        0,          1,          2,          3  };   //Analog Pin
 
 
 
 // **** Voltage measurement settings ****
 
-                               //  Analog1      Analog2     Analog3     Analog4
-const uint16_t analogInputR1[] {   20000,       20000,      20000,      20000  };   //Resistor R1 in Ohms
-const uint16_t analogInputR2[] {   10000,       10000,      10000,      10000  };   //Resistor R2 in Ohms
+                                 //  Analog1      Analog2     Analog3     Analog4
+const uint16_t analogInputR1[] = {   20000,       20000,      20000,      20000  };   //Resistor R1 in Ohms
+const uint16_t analogInputR2[] = {   10000,       10000,      10000,      10000  };   //Resistor R2 in Ohms
 
 /*
                   voltage input
