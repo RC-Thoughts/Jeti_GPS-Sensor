@@ -4,6 +4,20 @@
   -----------------------------------------------------------
 */
 
+// **** Supported features & options ****
+
+//#define UNIT_US                             //uncomment to enable US units
+
+#define V_REF                     3300        // set supply voltage from 1800 to 5500mV
+       
+#define SUPPORT_BMx280     
+#define SUPPORT_MS5611_LPS  
+#define SUPPORT_GPS
+
+// **************************************
+
+
+
 // Sensor IDs
 enum
 {
@@ -108,21 +122,9 @@ enum {
 };
 
 
-// **** Supported features ****
-
-//uncomment to enable
-
-//#define UNIT_US
-//#define SUPPLY_VOLTAGE_3V3 
-#define SUPPLY_VOLTAGE_5V        
-#define SUPPORT_BMx280     
-#define SUPPORT_MS5611_LPS                               
-
-
-
 // **** General settings ****
 
-#define MEASURING_INTERVAL        180                 //ms
+#define MEASURING_INTERVAL        180         //ms
 
 
 
@@ -156,48 +158,38 @@ enum {
 #define LPS_DEADZONE 0
 
 
+// **** GPS settings ****
+
+#define GPSBaud 9600
+
+
+
 // **** Analog inputs settings ****
 
-// Supply voltage
-
-#ifdef SUPPLY_VOLTAGE_3V3   
-  #define V_REF               3300
-
-  // suported analog input modes @3.3V
-  enum {
-    analog_disabled,
-    voltage,
-    ACS758_50B,
-    ACS758_100B,
-    ACS758_150B,
-    ACS758_200B,
-    ACS758_50U,
-    ACS758_100U,
-    ACS758_150U,
-    ACS758_200U
-  };
+#if V_REF < 1800 || V_REF > 5500
+  #error unsupported supply voltage
 #endif
+  
 
-#ifdef SUPPLY_VOLTAGE_5V  
-  #define V_REF               5000
+// suported analog input modes 
+enum {
+  analog_disabled,
+  voltage,
+  #if V_REF > 4500
+  ACS712_05,
+  ACS712_20,
+  ACS712_30,
+  #endif
+  ACS758_50B,
+  ACS758_100B,
+  ACS758_150B,
+  ACS758_200B,
+  ACS758_50U,
+  ACS758_100U,
+  ACS758_150U,
+  ACS758_200U
+};
 
-  // suported analog input modes @5V
-  enum {
-    analog_disabled,
-    voltage,
-    ACS712_05,
-    ACS712_20,
-    ACS712_30,
-    ACS758_50B,
-    ACS758_100B,
-    ACS758_150B,
-    ACS758_200B,
-    ACS758_50U,
-    ACS758_100U,
-    ACS758_150U,
-    ACS758_200U
-  };
-#endif
 
 // number of analog inputs
 #define MAX_ANALOG_INPUTS   4
@@ -234,28 +226,28 @@ const uint16_t analogInputR2[] = {   10000,       10000,      10000,      10000 
 
 // **** Current measurement settings ****
 
-#ifdef SUPPLY_VOLTAGE_3V3 
-  const uint16_t ACS_B_offset = 1650; //bi-directional offset in mV ( V_REF / 2)
-  const uint16_t ACS_U_offset = 396;  //uni-directional offset in mV ( V_REF / 8.33)
+const uint16_t ACS_B_offset = V_REF/2; //bi-directional offset in mV ( V_REF / 2)
+const uint16_t ACS_U_offset = V_REF/8.33;  //uni-directional offset in mV ( V_REF / 8.33)
 
-  // ACS Sensor                    //  ACS758-50    ACS758-100    ACS758-150    ACS758-200    
-  const uint8_t ACS_mVperAmp[] =  {    40,          20,           13,           10,               //bi-directional type, mV per Amp
-                                       60,          40,           27,           20          };    //uni-directional type, mV per Amp
-#endif
+                              //mV per Amp
+const uint8_t ACS_mVperAmp[] =  { 
+                                  #if V_REF > 4500
+                                  185,      // ACS712-05
+                                  100,      // ACS712-20
+                                   66,      // ACS712-30
+                                  #endif
+                                   40,      // ACS758-50B
+                                   20,      // ACS758-100B
+                                   13,      // ACS758-150B
+                                   10,      // ACS758-200B 
+                                   60,      // ACS758-50U
+                                   40,      // ACS758-100U
+                                   27,      // ACS758-150U
+                                   20 };    // ACS758-200U
 
-#ifdef SUPPLY_VOLTAGE_5V 
-  const uint16_t ACS_B_offset = 2500; //bi-directional offset in mV ( V_REF / 2)
-  const uint16_t ACS_U_offset = 600;  //uni-directional offset in mV ( V_REF / 8.33)
-
-  // at 5V supply, additional ACS712 types are supported
-  // ACS Sensor                    //  ACS712-05    ACS712-20    ACS712-30     ACS758-50    ACS758-100    ACS758-150    ACS758-200    
-  const uint8_t ACS_mVperAmp[] =  {    185,         100,         66,           40,          20,           13,           10,               //bi-directional type, mV per Amp
-                                                                               60,          40,           27,           20          };    //uni-directional type, mV per Amp
-#endif
 
 
-
-// **** Defaults settings ****
+// **** Default settings ****
 
 #define DEFAULT_GPS_MODE          GPS_disabled        //GPS_disabled, GPS_basic, GPS_extended
 #define DEFAULT_GPS_3D_DISTANCE   true
