@@ -41,6 +41,15 @@ enum
   ID_C1, ID_C2, ID_C3, ID_C4
 };
 
+/*
+TYPE_6b   int6_t    Data type 6b (-31 to 31)
+TYPE_14b  int14_t   Data type 14b (-8191 to 8191)
+TYPE_22b  int22_t   Data type 22b (-2097151 to 2097151)
+TYPE_DT   int22_t   Special data type for time and date
+TYPE_30b  int30_t   Data type 30b (-536870911 to 536870911) 
+TYPE_GPS  int30_t   Special data type for GPS coordinates:  lo/hi minute - lo/hi degree.
+*/    
+
 // Sensor names and unit[EU]
 #ifndef UNIT_US
 JETISENSOR_CONST sensors[] PROGMEM =
@@ -53,7 +62,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
   { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_30b, 2 },
   { ID_DIST,        "Distance",   "m",          JetiSensor::TYPE_14b, 0 },
-  { ID_TRIP,        "Trip",       "km",         JetiSensor::TYPE_14b, 2 },
+  { ID_TRIP,        "Trip",       "km",         JetiSensor::TYPE_22b, 2 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
@@ -90,7 +99,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
   { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_30b, 2 }, 
   { ID_DIST,        "Distance",   "ft.",        JetiSensor::TYPE_14b, 0 },
-  { ID_TRIP,        "Trip",       "mi",         JetiSensor::TYPE_14b, 2 },
+  { ID_TRIP,        "Trip",       "mi",         JetiSensor::TYPE_22b, 2 },
   { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
@@ -113,13 +122,6 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { 0 }
 };
 #endif
-
-// GPS
-enum {
-  GPS_disabled,
-  GPS_basic,
-  GPS_extended
-};
 
 
 // **** General settings ****
@@ -162,6 +164,13 @@ enum {
 
 #define GPSBaud 9600
 
+// GPS
+enum {
+  GPS_disabled,
+  GPS_basic,
+  GPS_extended
+};
+
 
 
 // **** Analog inputs settings ****
@@ -175,7 +184,7 @@ enum {
 enum {
   analog_disabled,
   voltage,
-  #if V_REF > 4500
+  #if V_REF >= 4500
   ACS712_05,
   ACS712_20,
   ACS712_30,
@@ -231,7 +240,7 @@ const uint16_t ACS_U_offset = V_REF/8.33;  //uni-directional offset in mV ( V_RE
 
                               //mV per Amp
 const uint8_t ACS_mVperAmp[] =  { 
-                                  #if V_REF > 4500
+                                  #if V_REF >= 4500
                                   185,      // ACS712-05
                                   100,      // ACS712-20
                                    66,      // ACS712-30

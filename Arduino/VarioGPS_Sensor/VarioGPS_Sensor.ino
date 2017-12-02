@@ -247,32 +247,22 @@ void setup()
 
 void loop()
 { 
-  static long homeTime = 0;
-  static bool fix = false;
-  static bool homeSet = false;  
-  static float home_lat;
-  static float home_lon;
-  static float last_lat;
-  static float last_lon;
-  static unsigned long tripDist = 0;
-  static float lastVariofilter = 0;
-  static long lastAltitude = 0;
   static unsigned long lastTime = 0;
   static long startAltitude = 0;
   static long uRelAltitude = 0;
   static long uAbsAltitude = 0;
 
-  unsigned long distToHome = 0;
-
   if((millis() - lastTime) > MEASURING_INTERVAL){
     
     if(pressureSensor.type != unknown){
       static bool setStartAltitude = false;
-      long curAltitude = 0;
-      long uPressure = 0;
-      int uTemperature = 0;
-      long uVario = 0;
-      int uHumidity = 0;
+      static float lastVariofilter = 0;
+      static long lastAltitude = 0;
+      long curAltitude;
+      long uPressure;
+      int uTemperature;
+      long uVario;
+      int uHumidity;
       
       // Read sensormodule values
       switch (pressureSensor.type){
@@ -379,6 +369,15 @@ void loop()
   #ifdef SUPPORT_GPS
   if(gpsSettings.mode != GPS_disabled){
 
+    static int homeSetCount = 0;
+    static float home_lat;
+    static float home_lon;
+    static float last_lat;
+    static float last_lon;
+    static long lastAbsAltitude = 0;
+    static unsigned long tripDist;
+    unsigned long distToHome;
+
     // read data from GPS
     while(gpsSerial.available() )
     {
@@ -390,45 +389,42 @@ void loop()
       }
     }
   
-    if (!fix) {
-      if (gps.location.isValid() && gps.location.age() < 2000) {
-        fix = true;
-        if (!homeSet) {
-          homeTime = (millis() + 5000);
-        }
-      } else {
-        fix = false;
-      }
-    }
-  
-    if (fix) {
+
+    if (gps.location.isValid() && gps.location.age() < 2000) { // if Fix
+
       jetiEx.SetSensorValueGPS( ID_GPSLAT, false, gps.location.lat() );
       jetiEx.SetSensorValueGPS( ID_GPSLON, true, gps.location.lng() );
+
+      // Altitude
+      uAbsAltitude = gps.altitude.meters();
+      
       #ifdef UNIT_US
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.mph() );
       #else
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.kmph() );
       #endif
+      
       jetiEx.SetSensorValue( ID_HEADING, gps.course.deg() );
-  
-      if (!homeSet && homeTime < millis()) {
-        homeSet = true;
+ 
+      if (homeSetCount < 3000) {  // set home position
+        ++homeSetCount;
         home_lat = gps.location.lat();
         home_lon = gps.location.lng();
-        last_lat = gps.location.lat();
-        last_lon = gps.location.lng();
+        last_lat = home_lat;
+        last_lon = home_lon;
+        lastAbsAltitude = gps.altitude.meters();
+        tripDist = 0;
         if(pressureSensor.type == unknown){
           startAltitude = gps.altitude.meters();
         }
-      }
-  
-      // Altitude
-      uAbsAltitude = gps.altitude.meters();
-      if(pressureSensor.type == unknown){
-        uRelAltitude = (uAbsAltitude - startAltitude)*10;
-      }
-  
-      if (homeSet) {
+        
+      }else{
+        
+        // Rel. Altitude
+        if(pressureSensor.type == unknown){
+          uRelAltitude = (uAbsAltitude - startAltitude)*10;
+        }
+      
         // Distance to model
         distToHome = gps.distanceBetween(
                                       gps.location.lat(),
@@ -449,16 +445,14 @@ void loop()
                                       last_lat,
                                       last_lon);
         if(gpsSettings.distance3D){
-          tripDist += sqrt(pow(uRelAltitude/10,2) + pow(distLast,2));
+          distLast = sqrt(pow(uAbsAltitude-lastAbsAltitude,2) + pow(distLast,2));
+          lastAbsAltitude = uAbsAltitude;
         }
+        tripDist += distLast;
         last_lat = gps.location.lat();
         last_lon = gps.location.lng();
-      } else {
-        distToHome = 0;
-        tripDist = 0;
-        jetiEx.SetSensorValue( ID_COURSE, 0 );
       }
-      
+    
     } else { // If Fix end
       jetiEx.SetSensorValueGPS( ID_GPSLAT, false, 0 );
       jetiEx.SetSensorValueGPS( ID_GPSLON, true, 0 );
@@ -471,6 +465,7 @@ void loop()
       jetiEx.SetSensorValue( ID_GPSSPEED, 0 );
       jetiEx.SetSensorValue( ID_HEADING, 0 );
     }
+    
     jetiEx.SetSensorValue( ID_SATS, gps.satellites.value() );
     jetiEx.SetSensorValue( ID_HDOP, gps.hdop.value());
     #ifndef UNIT_US
@@ -483,7 +478,7 @@ void loop()
       jetiEx.SetSensorValue( ID_TRIP, tripDist*0.06213 );
       jetiEx.SetSensorValue( ID_DIST, distToHome*3.2808399);
     #endif
-    
+
   }
   #endif
 
