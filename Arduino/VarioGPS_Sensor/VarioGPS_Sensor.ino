@@ -3,7 +3,7 @@
             Jeti VarioGPS Sensor
   -----------------------------------------------------------
 */
-#define VARIOGPS_VERSION "Version V2.0.2b"
+#define VARIOGPS_VERSION "Version V2.0.2"
 /*
 
   Unterstützte Hardware:
