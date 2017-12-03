@@ -9,8 +9,10 @@
 enum screenViews {
   aboutScreen,
   resetAltitude,
+  #ifdef SUPPORT_GPS
   setGpsMode,
   setDistanceMode,
+  #endif
   detectedPressureSensor,
   setFilterX,
   setFilterY,
@@ -103,6 +105,7 @@ void HandleMenu()
     {
       case resetAltitude:
         resetFunc();
+      #ifdef SUPPORT_GPS
       case setGpsMode:
         gpsSettings.mode++;
         if(gpsSettings.mode > GPS_extended){
@@ -112,6 +115,7 @@ void HandleMenu()
       case setDistanceMode:
         gpsSettings.distance3D = !gpsSettings.distance3D;
         break;
+      #endif
       case setFilterX:
         if (pressureSensor.filterX > 0.01) {
           pressureSensor.filterX -= 0.01;
@@ -166,6 +170,7 @@ void HandleMenu()
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset offset" );
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Press: Down" );
       break;
+    #ifdef SUPPORT_GPS
     case setGpsMode:
       switch (gpsSettings.mode){
         case GPS_disabled:
@@ -189,6 +194,7 @@ void HandleMenu()
       }
       jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
       break;
+    #endif
     case detectedPressureSensor:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Pressure Sensor:" );
       switch (pressureSensor.type) {
@@ -247,7 +253,7 @@ void HandleMenu()
       case voltage:
         strcpy( _buffer + strlen(_buffer), "Voltage");
         break;
-      #ifdef SUPPLY_VOLTAGE_5V 
+      #if V_REF > 4500 
         case ACS712_05:
           strcpy( _buffer + strlen(_buffer), "ACS712-05");
           break;

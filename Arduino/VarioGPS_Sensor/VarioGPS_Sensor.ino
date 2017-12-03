@@ -3,7 +3,7 @@
             Jeti VarioGPS Sensor
   -----------------------------------------------------------
 */
-#define VARIOGPS_VERSION "Version V2.0.1"
+#define VARIOGPS_VERSION "Version V2.0.2b"
 /*
 
   Unterstützte Hardware:
@@ -54,11 +54,16 @@
 #include <JetiExProtocol.h>
 #include <EEPROM.h>
 #include <Wire.h>
-#include "GpsSensor.h"
 #include "defaults.h"
 
-GpsSensor gps;
 JetiExProtocol jetiEx;
+
+#ifdef SUPPORT_GPS 
+  #include <TinyGPS++.h>
+  #include <AltSoftSerial.h>
+  TinyGPSPlus gps;
+  AltSoftSerial gpsSerial;
+#endif
 
 #ifdef SUPPORT_BMx280 
   #include "BMx_Sensor.h"
@@ -156,9 +161,12 @@ void setup()
   }
  
   // read settings from eeprom 
-  if (EEPROM.read(1) != 0xFF) {
-    gpsSettings.mode = EEPROM.read(1);
-  }
+  #ifdef SUPPORT_GPS
+    if (EEPROM.read(1) != 0xFF) {
+      gpsSettings.mode = EEPROM.read(1);
+    }
+  #endif
+  
   if (EEPROM.read(2) != 0xFF) {
     gpsSettings.distance3D = EEPROM.read(2);
   }
@@ -177,8 +185,11 @@ void setup()
     pressureSensor.deadzone = EEPROM.read(12);
   }
 
-  // init GPS
-  gps.Init( GpsSensor::SERIAL3 );
+  #ifdef SUPPORT_GPS
+    // init GPS
+    gpsSerial.begin(GPSBaud);
+  #endif
+  
 
   // Setup sensors
   if(pressureSensor.type == unknown){
@@ -236,35 +247,22 @@ void setup()
 
 void loop()
 { 
-  static long homeTime = 0;
-  static bool fix = false;
-  static bool homeSet = false;  
-  static float home_lat;
-  static float home_lon;
-  static float last_lat;
-  static float last_lon;
-  static unsigned long tripDist = 0;
-  static float lastVariofilter = 0;
-  static long lastAltitude = 0;
   static unsigned long lastTime = 0;
   static long startAltitude = 0;
   static long uRelAltitude = 0;
   static long uAbsAltitude = 0;
-  
-  float lat;
-  float lng;
-  unsigned long distToHome = 0;
-  long courseToModel = 0;
 
   if((millis() - lastTime) > MEASURING_INTERVAL){
     
     if(pressureSensor.type != unknown){
       static bool setStartAltitude = false;
-      long curAltitude = 0;
-      long uPressure = 0;
-      int uTemperature = 0;
-      long uVario = 0;
-      int uHumidity = 0;
+      static float lastVariofilter = 0;
+      static long lastAltitude = 0;
+      long curAltitude;
+      long uPressure;
+      int uTemperature;
+      long uVario;
+      int uHumidity;
       
       // Read sensormodule values
       switch (pressureSensor.type){
@@ -368,101 +366,108 @@ void loop()
     
   }
 
+  #ifdef SUPPORT_GPS
   if(gpsSettings.mode != GPS_disabled){
-    gps.DoGpsSensor();
-  
-    if (!fix) {
-      if (gps.GetValid() && gps.GetAge() < 2000) {
-        fix = true;
-        if (!homeSet) {
-          homeTime = (millis() + 5000);
-        }
-      } else {
-        fix = false;
+
+    static int homeSetCount = 0;
+    static float home_lat;
+    static float home_lon;
+    static float last_lat;
+    static float last_lon;
+    static long lastAbsAltitude = 0;
+    static unsigned long tripDist;
+    unsigned long distToHome;
+
+    // read data from GPS
+    while(gpsSerial.available() )
+    {
+      char c = gpsSerial.read();
+      if(gps.encode(c)){
+        break;
+      }else{
+        return;
       }
     }
   
-    if (fix) {
-      lat = gps.GetLat();
-      lng = gps.GetLon();
-      #ifdef UNIT_US
-        jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedMi() );
-      #else
-        jetiEx.SetSensorValue( ID_GPSSPEED, gps.GetSpeedKm() );
-      #endif
-      jetiEx.SetSensorValue( ID_HEADING, gps.GetCourseDeg() );
-  
-      if (!homeSet && homeTime < millis()) {
-        homeSet = true;
-        home_lat = lat;
-        home_lon = lng;
-        last_lat = lat;
-        last_lon = lng;
-        if(pressureSensor.type == unknown){
-          startAltitude = gps.GetAltMe();
-        }
-      }
-  
+
+    if (gps.location.isValid() && gps.location.age() < 2000) { // if Fix
+
+      jetiEx.SetSensorValueGPS( ID_GPSLAT, false, gps.location.lat() );
+      jetiEx.SetSensorValueGPS( ID_GPSLON, true, gps.location.lng() );
+
       // Altitude
-      uAbsAltitude = gps.GetAltMe();
-      if(pressureSensor.type == unknown){
-        uRelAltitude = (uAbsAltitude - startAltitude)*10;
-      }
-  
-      if (homeSet) {
+      uAbsAltitude = gps.altitude.meters();
+      
+      #ifdef UNIT_US
+        jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.mph() );
+      #else
+        jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.kmph() );
+      #endif
+      
+      jetiEx.SetSensorValue( ID_HEADING, gps.course.deg() );
+ 
+      if (homeSetCount < 3000) {  // set home position
+        ++homeSetCount;
+        home_lat = gps.location.lat();
+        home_lon = gps.location.lng();
+        last_lat = home_lat;
+        last_lon = home_lon;
+        lastAbsAltitude = gps.altitude.meters();
+        tripDist = 0;
+        if(pressureSensor.type == unknown){
+          startAltitude = gps.altitude.meters();
+        }
+        
+      }else{
+        
+        // Rel. Altitude
+        if(pressureSensor.type == unknown){
+          uRelAltitude = (uAbsAltitude - startAltitude)*10;
+        }
+      
         // Distance to model
-        distToHome = TinyGPSPlus::distanceBetween(
-                      lat,
-                      lng,
-                      home_lat,
-                      home_lon);
+        distToHome = gps.distanceBetween(
+                                      gps.location.lat(),
+                                      gps.location.lng(),
+                                      home_lat,
+                                      home_lon);
         if(gpsSettings.distance3D){
           distToHome = sqrt(pow(uRelAltitude/10,2) + pow(distToHome,2));
         }
   
         // Course from home to model
-        courseToModel =
-          TinyGPSPlus::courseTo(
-            home_lat,
-            home_lon,
-            lat,
-            lng);
+        jetiEx.SetSensorValue( ID_COURSE, gps.courseTo(home_lat,home_lon,gps.location.lat(),gps.location.lng()));
 
         // Trip distance
-        float distLast = TinyGPSPlus::distanceBetween(
-                          lat,
-                          lng,
-                          last_lat,
-                          last_lon);
+        float distLast = gps.distanceBetween(
+                                      gps.location.lat(),
+                                      gps.location.lng(),
+                                      last_lat,
+                                      last_lon);
         if(gpsSettings.distance3D){
-          tripDist += sqrt(pow(uRelAltitude/10,2) + pow(distLast,2));
+          distLast = sqrt(pow(uAbsAltitude-lastAbsAltitude,2) + pow(distLast,2));
+          lastAbsAltitude = uAbsAltitude;
         }
-        last_lat = lat;
-        last_lon = lng;
-      } else {
-        distToHome = 0;
-        courseToModel = 0;
-        tripDist = 0;
+        tripDist += distLast;
+        last_lat = gps.location.lat();
+        last_lon = gps.location.lng();
       }
-      
+    
     } else { // If Fix end
-      lat = 0;
-      lng = 0;
+      jetiEx.SetSensorValueGPS( ID_GPSLAT, false, 0 );
+      jetiEx.SetSensorValueGPS( ID_GPSLON, true, 0 );
       if(pressureSensor.type == unknown){
         uRelAltitude = 0;
       }
       uAbsAltitude = 0;
       distToHome = 0;
-      courseToModel = 0;
+      jetiEx.SetSensorValue( ID_COURSE, 0 );
       jetiEx.SetSensorValue( ID_GPSSPEED, 0 );
       jetiEx.SetSensorValue( ID_HEADING, 0 );
     }
-
-    jetiEx.SetSensorValueGPS( ID_GPSLAT, false, lat );
-    jetiEx.SetSensorValueGPS( ID_GPSLON, true, lng );
-    jetiEx.SetSensorValue( ID_COURSE, courseToModel );
-    jetiEx.SetSensorValue( ID_SATS, gps.GetSats() );
-    jetiEx.SetSensorValue( ID_HDOP, gps.GetHDOP() );
+    
+    jetiEx.SetSensorValue( ID_SATS, gps.satellites.value() );
+    jetiEx.SetSensorValue( ID_HDOP, gps.hdop.value());
     #ifndef UNIT_US
       //EU units
       jetiEx.SetSensorValue( ID_TRIP, tripDist/10 );
@@ -473,8 +478,9 @@ void loop()
       jetiEx.SetSensorValue( ID_TRIP, tripDist*0.06213 );
       jetiEx.SetSensorValue( ID_DIST, distToHome*3.2808399);
     #endif
-    
+
   }
+  #endif
 
   #ifdef UNIT_US
     // EU to US conversions
