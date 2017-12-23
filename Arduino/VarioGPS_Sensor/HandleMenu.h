@@ -5,10 +5,10 @@
 */
 
 
-// Jetibox screens, names and order
+// Jetibox screen names
 enum screenViews {
   aboutScreen,
-  resetAltitude,
+  resetOffset,
   #ifdef SUPPORT_GPS
   setGpsMode,
   setDistanceMode,
@@ -17,23 +17,106 @@ enum screenViews {
   setFilterX,
   setFilterY,
   setDeadzone,
-  setAnalog1,
-  setAnalog2,
-  setAnalog3,
-  setAnalog4,
+  setMainDrive,
+  setCapacityMode,
+  enableRx1Voltage,
+  enableRx2Voltage,
+  enableExternTemp,
   saveSettings,
   defaultSettings
+};
+
+
+const char menuText[][17] PROGMEM=
+{
+  {"VarioGPS Sensor"},
+  {"Reset offset"},
+  #ifdef SUPPORT_GPS
+  {"GPS mode:"},
+  {"GPS distance:"},
+  #endif
+  {"Pressure sensor:"},
+  {"Vario filter"},
+  {"Vario filter"},
+  {"Vario deadzone:"},
+  {"Main drive:"},
+  {"Capacity reset:"},
+  {"Rx1 voltage:"},
+  {"Rx2 voltage:"},
+  {"Ext. Temp:"},
+  {"Save and restart"},
+  {"Load defaults"}
+};
+
+const char aboutScreenText[17] PROGMEM= {VARIOGPS_VERSION};
+
+const char setGpsModeText[][10] PROGMEM=
+{
+  {" Disabled"},
+  {" Basic"},
+  {" Extended"}
+};
+
+const char setDistanceModeText[][4] PROGMEM=
+{
+  {" 3D"},
+  {" 2D"}
+};
+
+const char detectedPressureSensorText[][9] PROGMEM=
+{
+  {" unknown"},
+  {" BMP280"},
+  {" BME280"},
+  {" MS5611"},
+  {" LPS"}
+};
+
+const char setMainDriveText[][16] PROGMEM=
+{
+  {" Disabled"},
+  {" AttoPilot 45"},
+  {" AttoPilot 90"},
+  {" AttoPilot 180"},
+  {" APM2.5 90A/50V"}, 
+  #if V_REF > 4500 
+  {" ACS712-05"},
+  {" ACS712-20"},
+  {" ACS712-30"},
+  #endif 
+  {" ACS758-50B"},
+  {" ACS758-100B"},
+  {" ACS758-150B"},
+  {" ACS758-200B"},
+  {" ACS758-50U"},
+  {" ACS758-100U"},
+  {" ACS758-150U"},
+  {" ACS758-200U"}
+};
+
+const char setCapacityModeText[][9] PROGMEM=
+{
+  {" Startup"},
+  {" Auto"},
+  {" Manual"}
+};
+
+const char enableText[][10] PROGMEM=
+{
+  {" Disabled"},
+  {" Enabled"}
 };
 
 
 void HandleMenu()
 { 
   static int  _nMenu = aboutScreen;
-  static char _buffer[17];
   static bool _bSetDisplay = true;
   static uint32_t LastKey;
+  char _bufferLine1[17];
+  char _bufferLine2[17];
   uint8_t c = jetiEx.GetJetiboxKey();
-
+  
   enum
   {
     keyRight       = 0xe0,
@@ -71,6 +154,11 @@ void HandleMenu()
   {
     switch ( _nMenu )
     {
+      case setGpsMode:
+        if(gpsSettings.mode > GPS_disabled){
+          gpsSettings.mode--;
+        }
+        break;
       case setFilterX:
         if (pressureSensor.filterX < 0.98) {
           pressureSensor.filterX += 0.01;
@@ -86,13 +174,16 @@ void HandleMenu()
           pressureSensor.deadzone++;
         }
         break;
-    }
-    if(_nMenu >= setAnalog1 && _nMenu <= setAnalog4){
-      if(analogInputMode[_nMenu-setAnalog1] == analog_disabled){
-        analogInputMode[_nMenu-setAnalog1] = ACS758_200U;
-      }else{
-        analogInputMode[_nMenu-setAnalog1]--;
-      }
+      case setMainDrive:
+        if (currentSensor > mainDrive_disabled) {
+          currentSensor--;
+        }
+        break;
+      case setCapacityMode:
+        if(capacityMode > startup){
+          capacityMode--;
+        }
+        break;
     }
     
     _bSetDisplay = true;
@@ -103,13 +194,14 @@ void HandleMenu()
   {
     switch ( _nMenu )
     {
-      case resetAltitude:
+      case resetOffset:
+        EEPROM.put(EEPROM_ADRESS_CAPACITY, 0.0f);                 // reset capacity in eeprom
+        EEPROM.put(EEPROM_ADRESS_CAPACITY+sizeof(float), 0.0f);
         resetFunc();
       #ifdef SUPPORT_GPS
       case setGpsMode:
-        gpsSettings.mode++;
-        if(gpsSettings.mode > GPS_extended){
-          gpsSettings.mode = GPS_disabled;
+        if(gpsSettings.mode < GPS_extended){
+          gpsSettings.mode++;
         }
         break;
       case setDistanceMode:
@@ -131,27 +223,44 @@ void HandleMenu()
           pressureSensor.deadzone--;
         }
         break;
+      case setMainDrive:
+        if (currentSensor < ACS758_200U) {
+          currentSensor++;
+        }
+        break;
+      case setCapacityMode:
+        if(capacityMode < manual){
+          capacityMode++;
+        }
+        break;
+      case enableRx1Voltage:
+        enableRx1 = !enableRx1;
+        break;
+      case enableRx2Voltage:
+        enableRx2 = !enableRx2;
+        break;
+      case enableExternTemp:
+        enableExtTemp = !enableExtTemp;
+        break;
       case saveSettings:
         EEPROM.write(1, gpsSettings.mode);
         EEPROM.write(2, gpsSettings.distance3D);
-        for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
-          EEPROM.write(3+i, analogInputMode[i]);
-        }
+        EEPROM.write(3, currentSensor);
+        EEPROM.write(5, capacityMode);
+        EEPROM.write(6, enableRx1);
+        EEPROM.write(7, enableRx2);
+        EEPROM.write(8, enableExtTemp);
         EEPROM.write(10,int(pressureSensor.filterX*100));
         EEPROM.write(11,int(pressureSensor.filterY*100));
         EEPROM.write(12,pressureSensor.deadzone);
         resetFunc();
       case defaultSettings:
-        for(int i=0; i < 20; i++){
+        for(int i=0; i < 50; i++){
           EEPROM.write(i, 0xFF);
         }
+        EEPROM.put(EEPROM_ADRESS_CAPACITY, 0.0f);
+        EEPROM.put(EEPROM_ADRESS_CAPACITY+sizeof(float), 0.0f);
         resetFunc();
-    }
-    if(_nMenu >= setAnalog1 && _nMenu <= setAnalog4){
-      analogInputMode[_nMenu-setAnalog1]++;
-      if(analogInputMode[_nMenu-setAnalog1] > ACS758_200U){
-        analogInputMode[_nMenu-setAnalog1] = analog_disabled;
-      }
     }
   
     _bSetDisplay = true;
@@ -159,138 +268,62 @@ void HandleMenu()
 
   if ( !_bSetDisplay )
     return;
- 
+
+  // clear buffer
+  _bufferLine1[0] = 0; 
+  _bufferLine2[0] = 0; 
+  
+  memcpy_P( _bufferLine1, &menuText[_nMenu], 16 );
+  
   switch ( _nMenu )
   {
     case aboutScreen:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "VarioGPS Sensor" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, VARIOGPS_VERSION);
-      break;
-    case resetAltitude:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset offset" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Press: Down" );
+      memcpy_P( _bufferLine2, aboutScreenText, 16 );
       break;
     #ifdef SUPPORT_GPS
     case setGpsMode:
-      switch (gpsSettings.mode){
-        case GPS_disabled:
-          jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Disabled" );
-          break;
-        case GPS_basic:
-          jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Basic" );
-          break;
-        case GPS_extended:
-          jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS: Extended" );
-          break;
-      }  
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
-      break;
+      memcpy_P( _bufferLine2, &setGpsModeText[gpsSettings.mode], 16 ); 
+      break;  
     case setDistanceMode:
       if(gpsSettings.mode == GPS_disabled)goto startHandleMenu;
-      if(gpsSettings.distance3D){
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS distance: 3D" );
-      }else{
-        jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "GPS distance: 2D" );
-      }
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Down" );
+      memcpy_P( _bufferLine2, &setDistanceModeText[gpsSettings.distance3D], 16 );
       break;
     #endif
     case detectedPressureSensor:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Pressure Sensor:" );
-      switch (pressureSensor.type) {
-        case unknown:
-            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Not Detected!" );
-            break;
-        case BMP280:
-            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found BMP280" );
-            break;
-        case BME280:
-            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found BME280" );
-            break;
-        case MS5611_:
-            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found MS5611" );
-            break;
-        case LPS_:
-            jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Found LPS" );
-            break;
-      }
+      memcpy_P( _bufferLine2, &detectedPressureSensorText[pressureSensor.type], 16 );
       break;
     case setFilterX:
       if(pressureSensor.type == unknown)goto startHandleMenu;
-      sprintf( _buffer, "Filter X: 0.%2d",int(pressureSensor.filterX*100));
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _buffer );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Up/Down" );
+      sprintf( _bufferLine2, " X: 0.%2d",int(pressureSensor.filterX*100));
       break;
     case setFilterY:
       if(pressureSensor.type == unknown)goto startHandleMenu;
-      sprintf( _buffer, "Filter Y: 0.%2d",int(pressureSensor.filterY*100));
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _buffer );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Up/Down" );
+      sprintf( _bufferLine2, " Y: 0.%2d",int(pressureSensor.filterY*100));
       break;
     case setDeadzone:
       if(pressureSensor.type == unknown)goto startHandleMenu;
-      sprintf( _buffer, "Deadzone: %2d",pressureSensor.deadzone);
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _buffer );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Up/Down" );
+      sprintf( _bufferLine2, " %2dcm",pressureSensor.deadzone);
       break;
-    case saveSettings:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Save and Restart" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Save: Down" );
+    case setMainDrive:
+      memcpy_P( _bufferLine2, &setMainDriveText[currentSensor], 16 );
       break;
-    case defaultSettings:
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE1, "Reset Defaults" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Reset: Down" );
+    case setCapacityMode:
+      if(currentSensor == mainDrive_disabled)goto startHandleMenu;
+      memcpy_P( _bufferLine2, &setCapacityModeText[capacityMode], 16 );
+      break;
+    case enableRx1Voltage:
+      memcpy_P( _bufferLine2, &enableText[enableRx1], 16 );
+      break;
+    case enableRx2Voltage:
+      memcpy_P( _bufferLine2, &enableText[enableRx2], 16 );
+      break;
+    case enableExternTemp:
+      memcpy_P( _bufferLine2, &enableText[enableExtTemp], 16 );
       break;
   }
-  if(_nMenu >= setAnalog1 && _nMenu <= setAnalog4){
-    //sprintf( _buffer, "Volt%c:", analogInCount );
-    strcpy( _buffer, "A : ");
-    _buffer[1] = _nMenu-setAnalog1+49;
-    switch(analogInputMode[_nMenu-setAnalog1]){
-      case analog_disabled:
-        strcpy( _buffer + strlen(_buffer), "Disabled");
-        break;
-      case voltage:
-        strcpy( _buffer + strlen(_buffer), "Voltage");
-        break;
-      #if V_REF > 4500 
-        case ACS712_05:
-          strcpy( _buffer + strlen(_buffer), "ACS712-05");
-          break;
-        case ACS712_20:
-          strcpy( _buffer + strlen(_buffer), "ACS712-20");
-          break;
-        case ACS712_30:
-          strcpy( _buffer + strlen(_buffer), "ACS712-30");
-          break;
-      #endif
-      case ACS758_50B:
-        strcpy( _buffer + strlen(_buffer), "ACS758-50B");
-        break;
-      case ACS758_100B:
-        strcpy( _buffer + strlen(_buffer), "ACS758-100B");
-        break;
-      case ACS758_150B:
-        strcpy( _buffer + strlen(_buffer), "ACS758-150B");
-        break;
-      case ACS758_200B:
-        strcpy( _buffer + strlen(_buffer), "ACS758-200B");
-        break;
-      case ACS758_50U:
-        strcpy( _buffer + strlen(_buffer), "ACS758-50U");
-        break;
-      case ACS758_100U:
-        strcpy( _buffer + strlen(_buffer), "ACS758-100U");
-        break;
-      case ACS758_150U:
-        strcpy( _buffer + strlen(_buffer), "ACS758-150U");
-        break;
-      case ACS758_200U:
-        strcpy( _buffer + strlen(_buffer), "ACS758-200U");
-        break;
-    } 
-    jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _buffer );
-    jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "Change: Up/Down" );
-  }
+  
+  jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _bufferLine1 );
+  jetiEx.SetJetiboxText( JetiExProtocol::LINE2, _bufferLine2 );
+  
   _bSetDisplay = false;
 }

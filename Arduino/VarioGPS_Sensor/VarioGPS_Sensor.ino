@@ -1,20 +1,49 @@
 /*
-  -----------------------------------------------------------
-            Jeti VarioGPS Sensor
-  -----------------------------------------------------------
+  ------------------------------------------------------------------
+                    Jeti VarioGPS Sensor
+  ------------------------------------------------------------------
+            *** Universeller Jeti Telemetrie Sensor ***
+  Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
+  
 */
-#define VARIOGPS_VERSION "Version V2.0.2"
+#define VARIOGPS_VERSION "Version V2.1"
 /*
 
+  ******************************************************************
+  Versionen:
+  V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
+                    startup-/auto-/maual-reset für Kapazitätsanzeige, SRAM-Speicheroptimierung    
+  V2.0.2  03.12.17  Fehler in GPS Trip behoben
+  V2.0.1  21.11.17  Fehler bei Spannungsmessung behoben
+  V2.0    20.11.17  GPS Trip[km] und verbrauchte Kapazität[mAh] eingebaut, Stromsensoren ACS712 eingebaut
+  V1.9    17.11.17  ACSxxx Stromsensoren eingebaut
+  V1.8    17.11.17  Luftdrucksensor MS5611/LPS werden unterstützt
+  V1.7.2  15.11.17  Fehlerbehebung mit BME280
+  V1.7.1  15.11.17  Speicheroptimierung, kleinere Fehler behoben
+  V1.7    12.11.17  Empfängerspannungen können gemessen werden
+  V1.6    05.11.17  Luftdrucksensoren BMP085/BMP180/BMP280/BME280 eingebaut, und zu VarioGPS umbenannt
+  V1.5    05.11.17  Code von RC-Thoughts(Jeti_GPS-Sensor) übernommen
+
+
+
+
+  ******************************************************************
   Unterstützte Hardware:
-  - Arduino Pro Mini 
-  - GPS-Modul mit UART@9600baud
+  
+  - Arduino Pro Mini 3.3V-8Mhz/5V-16Mhz
+  - GPS-Modul mit NMEA Protokoll und UART@9600baud
   - Luftdrucksensoren: BMP280, BME280, MS5611, LPS 
-  - Stromsensoren @3.3V Betriebsspannung: ACS758_50B, ACS758_100B, ACS758_150B, ACS758_200B, ACS758_50U, ACS758_100U, ACS758_150U, ACS758_200U
+  - Stromsensoren @3.3V/5V Betriebsspannung:        AttoPilot Module @3.3V: 45A/13.6V - 90A/50V - 180A/50V (@5V: 45A/20.6V - 90A/60V - 180A/60V)
+                                                    APM2.5 PowerModul @5V: 90A/50V (@3.3V: 58A/33.4V)
+                                                    ACS758_50B, ACS758_100B, ACS758_150B, ACS758_200B, ACS758_50U, ACS758_100U, ACS758_150U, ACS758_200U
   - zusätzliche Stromsensoren @5V Betriebsspannung: ACS712_05, ACS712_20, ACS712_30
   
+
+
+  ******************************************************************
+  Anzeige:
   
-  Ohne GPS mit Barometer werden die Werte angezeigt:
+  Nur mit Luftdrucksensor werden die Werte angezeigt:
   - Rel. und Abs. Höhe
   - Vario
   - Luftdruck
@@ -28,8 +57,8 @@
   - Vario
   
   Im GPS Extended Mode werden zusätzlich die Werte angezeigt:
-  - Distanz vom Modell zum Startpunkt (2D und 3D)
-  - zurückgelegte Strecke
+  - Distanz vom Modell zum Startpunkt (2D oder 3D)
+  - zurückgelegte Strecke (Trip)
   - Flugrichtung (Heading)
   - Kurs vom Modell zum Startpunkt
   - Anzahl Satelliten
@@ -38,15 +67,22 @@
   - Temperatur
   - Luftfeuchtigkeit 
 
-  An den Analogeingängen A0-A1 sind folgende Messungen möglich:
-  - Spannungsmessung
-  - Strommessung mit verbrauchter Energie
+  An den Analogeingängen sind folgende Messungen möglich:
+  - Strom- und Spannung für Hauptantrieb mit verbrauchter Kapazität[mAh] und Leistung[W]
+  - 2x Empfängerspannung
+  - Temperatur mit NTC-Wiederstand von -55 bis +155°C
   
   Folgende Einstellungen können per Jetibox vorgenommen werden:
   - GPS: deaktiviert, Basic oder Extended
   - GPS Distanz: 2D oder 3D
   - Vario Filterparameter X, Y und Deadzone
-  - Analogeingänge 1-4 konfigurierbar (deaktiviert, Spannungs- oder Strommessung)
+  - Stromsensor für Hauptantrieb 
+  - Einstellung Reset der Kapazität: 
+        STARTUP(Wert ist nach jedem Einschalten auf 0)
+        AUTO(Wert wird gespeichert und erst zurückgesetzt wenn ein geladener Akku angeschlossen wird)
+        MANUAL(Wert muss manuell per Jetibox zurückgesetzt werden mit RESET OFFSET)
+  - Rx1, Rx2 Empfängerspannungsmessung aktivieren
+  - Temperaturmessung aktivieren
    
 */
 
@@ -77,9 +113,16 @@ JetiExProtocol jetiEx;
   LPS lps;
 #endif
 
+#if V_REF < 1800 || V_REF > 5500
+  #error unsupported supply voltage
+#endif
+
+#define MEASURING_INTERVAL        180         //ms 
+#define EEPROM_ADRESS_CAPACITY    20
+
 struct {
-  uint8_t mode;
-  bool distance3D;
+  uint8_t mode = DEFAULT_GPS_MODE;
+  bool distance3D = DEFAULT_GPS_3D_DISTANCE;
 } gpsSettings;
 
 struct {
@@ -90,30 +133,49 @@ struct {
 } pressureSensor;
 
 
-const float factorVoltageDivider[MAX_ANALOG_INPUTS] = { float(analogInputR1[0]+analogInputR2[0])/analogInputR2[0],
-                                                        float(analogInputR1[1]+analogInputR2[1])/analogInputR2[1],
-                                                        float(analogInputR1[2]+analogInputR2[2])/analogInputR2[2],
-                                                        float(analogInputR1[3]+analogInputR2[3])/analogInputR2[3]  };
+unsigned long lastTime = 0;
+unsigned long lastTimeCapacity = 0;
+uint8_t currentSensor = DEFAULT_CURRENT_SENSOR;
+uint8_t capacityMode = DEFAULT_CAPACITY_MODE;
+bool enableRx1 = DEFAULT_ENABLE_Rx1;
+bool enableRx2 = DEFAULT_ENABLE_Rx2;
+bool enableExtTemp = DEFAULT_ENABLE_EXT_TEMP;
 
-const float timefactorPowerConsumption = (1000.0/MEASURING_INTERVAL*60*60)/1000;
-uint8_t analogInputMode[MAX_ANALOG_INPUTS];
-float powerConsumption[MAX_ANALOG_INPUTS] = {0,0,0,0};
+const float factorVoltageDivider[] = { float(voltageInputR1[0]+voltageInputR2[0])/voltageInputR2[0],
+                                       float(voltageInputR1[1]+voltageInputR2[1])/voltageInputR2[1],
+                                       float(voltageInputR1[2]+voltageInputR2[2])/voltageInputR2[2],
+                                       float(voltageInputR1[3]+voltageInputR2[3])/voltageInputR2[3],
+                                       float(voltageInputR1[4]+voltageInputR2[4])/voltageInputR2[4],
+                                       float(voltageInputR1[5]+voltageInputR2[5])/voltageInputR2[5],
+                                       float(voltageInputR1[6]+voltageInputR2[6])/voltageInputR2[6],
+                                       float(voltageInputR1[7]+voltageInputR2[7])/voltageInputR2[7]  };
+
+const float timefactorCapacityConsumption = (1000.0/MEASURING_INTERVAL*60*60)/1000;
+float capacityConsumption = 0;
 
 // Restart by user
 void(* resetFunc) (void) = 0;
 
 #include "HandleMenu.h"
 
+long readAnalog_mV(uint8_t sensorVolt, uint8_t pin){
+  return (analogRead(pin)/1023.0)*V_REF*factorVoltageDivider[sensorVolt];
+}
+
+uint8_t getVoltageSensorTyp(){
+  if (currentSensor <= APM25_A){
+    return currentSensor-1;
+  #if V_REF >= 4500
+  }else if(currentSensor >= ACS712_05 && currentSensor <= ACS712_30){
+    return ACS712_voltage;
+  #endif
+  }else if(currentSensor >= ACS758_50B){
+    return ACS758_voltage;
+  }
+}
+
 void setup()
 {
-  // set defaults
-  gpsSettings.mode = DEFAULT_GPS_MODE;
-  gpsSettings.distance3D = DEFAULT_GPS_3D_DISTANCE;
-  analogInputMode[0] = DEFAULT_MODE_ANALOG_1;
-  analogInputMode[1] = DEFAULT_MODE_ANALOG_2;
-  analogInputMode[2] = DEFAULT_MODE_ANALOG_3;
-  analogInputMode[3] = DEFAULT_MODE_ANALOG_4;
-  
   // identify sensor
   #ifdef SUPPORT_BMx280 
     pressureSensor.type = boschPressureSensor.begin(0x76);
@@ -170,10 +232,20 @@ void setup()
   if (EEPROM.read(2) != 0xFF) {
     gpsSettings.distance3D = EEPROM.read(2);
   }
-  for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
-    if (EEPROM.read(3+i) != 0xFF) {
-      analogInputMode[i] = EEPROM.read(3+i);
-    }
+  if (EEPROM.read(3) != 0xFF) {
+    currentSensor = EEPROM.read(3);
+  }
+  if (EEPROM.read(5) != 0xFF) {
+    capacityMode = EEPROM.read(5);
+  }
+  if (EEPROM.read(6) != 0xFF) {
+    enableRx1 = EEPROM.read(6);
+  }
+  if (EEPROM.read(7) != 0xFF) {
+    enableRx2 = EEPROM.read(7);
+  }
+  if (EEPROM.read(8) != 0xFF) {
+    enableExtTemp = EEPROM.read(8);
   }
   if (EEPROM.read(10) != 0xFF) {
     pressureSensor.filterX = (float)EEPROM.read(10) / 100;
@@ -224,30 +296,48 @@ void setup()
     jetiEx.SetSensorActive( ID_HDOP, false, sensors );
   }
 
-  for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
-    if (analogInputMode[i] > voltage) {
-      // if voltage
-      jetiEx.SetSensorActive( ID_V1+i, false, sensors );
-    }else if(analogInputMode[i] == voltage){
-      // if current
-      jetiEx.SetSensorActive( ID_A1+i, false, sensors );
-      jetiEx.SetSensorActive( ID_C1+i, false, sensors );
-    }else{
-      // if disabled
-      jetiEx.SetSensorActive( ID_V1+i, false, sensors );
-      jetiEx.SetSensorActive( ID_A1+i, false, sensors );
-      jetiEx.SetSensorActive( ID_C1+i, false, sensors );
+  if(currentSensor == mainDrive_disabled){
+    jetiEx.SetSensorActive( ID_VOLTAGE, false, sensors );
+    jetiEx.SetSensorActive( ID_CURRENT, false, sensors );
+    jetiEx.SetSensorActive( ID_CAPACITY, false, sensors );
+    jetiEx.SetSensorActive( ID_POWER, false, sensors );
+  }else{
+    if(capacityMode > startup){
+      // read capacity from eeprom
+      int eeAddress = EEPROM_ADRESS_CAPACITY;
+      EEPROM.get(eeAddress, capacityConsumption);
+      if(capacityMode == automatic){
+        eeAddress += sizeof(float);
+        float cuVolt = readAnalog_mV(getVoltageSensorTyp(),VOLTAGE_PIN)/1000.0;
+        float oldVolt;
+        EEPROM.get(eeAddress, oldVolt);
+        if(cuVolt >= oldVolt * ((100.0+VOLTAGE_DIFFERENCE)/100.0)){
+          capacityConsumption = 0;
+        }
+      }
     }
   }
 
-  jetiEx.SetDeviceId( 0x76, 0x32 );
+  if(!enableRx1){
+    jetiEx.SetSensorActive( ID_RX1_VOLTAGE, false, sensors );
+  }
 
+  if(!enableRx2){
+    jetiEx.SetSensorActive( ID_RX2_VOLTAGE, false, sensors );
+  }
+
+  if(!enableExtTemp){
+    jetiEx.SetSensorActive( ID_EXT_TEMP, false, sensors );
+  }
+
+  // init Jeti EX Bus
+  jetiEx.SetDeviceId( 0x76, 0x32 );
   jetiEx.Start( "VarioGPS", sensors, JetiExProtocol::SERIAL2 );
+
 }
 
 void loop()
 { 
-  static unsigned long lastTime = 0;
   static long startAltitude = 0;
   static long uRelAltitude = 0;
   static long uAbsAltitude = 0;
@@ -339,31 +429,79 @@ void loop()
     lastTime = millis();
 
     // analog input
-    for(uint8_t i=0; i < MAX_ANALOG_INPUTS; i++){
-      if (analogInputMode[i] == voltage){
-        // Voltage
-        jetiEx.SetSensorValue( ID_V1+i, (analogRead(analogInputPin[i])/1023.0)*V_REF*factorVoltageDivider[i]/10);
-      }else if(analogInputMode[i] > voltage){
-        // Current
-        uint16_t ACSoffset;
-    
-        if (analogInputMode[i] > ACS758_200B){
-          ACSoffset = ACS_U_offset;
-        }else{
-          ACSoffset = ACS_B_offset;
-        }
-  
-        float mVanalogIn = (analogRead(analogInputPin[i]) / 1023.0) * V_REF; // mV 
-        float cuAmp = (mVanalogIn - ACSoffset) / ACS_mVperAmp[analogInputMode[i]-2]; 
- 
-        jetiEx.SetSensorValue( ID_A1+i, cuAmp*10);
+    if(currentSensor){
+      // Voltage
+      float cuVolt = readAnalog_mV(getVoltageSensorTyp(),VOLTAGE_PIN)/1000.0;
+      jetiEx.SetSensorValue( ID_VOLTAGE, cuVolt*10);
 
-        //Power consumption
-        powerConsumption[i] += cuAmp/timefactorPowerConsumption;
-        jetiEx.SetSensorValue( ID_C1+i, powerConsumption[i]);
+      // Current
+      uint16_t ampOffset;
+  
+      if (currentSensor <= APM25_A){
+        ampOffset = Atto_APM_offset;
+      }else if (currentSensor > ACS758_200B){
+        ampOffset = ACS_U_offset;
+      }else{
+        ampOffset = ACS_B_offset;
       }
+  
+      float mVanalogIn = (analogRead(CURRENT_PIN) / 1023.0) * V_REF; // mV 
+      float cuAmp = (mVanalogIn - ampOffset) / mVperAmp[currentSensor-1]; 
+      if (currentSensor > APM25_A){
+        cuAmp *= 5000.0/V_REF;
+      }
+
+      jetiEx.SetSensorValue( ID_CURRENT, cuAmp*10);
+
+      // Capacity consumption
+      capacityConsumption += cuAmp/timefactorCapacityConsumption;
+      jetiEx.SetSensorValue( ID_CAPACITY, capacityConsumption);
+
+      // save capacity and voltage to eeprom
+      if(capacityMode > startup && (millis() - lastTimeCapacity) > CAPACITY_SAVE_INTERVAL){
+        if(cuAmp <= MAX_CUR_TO_SAVE_CAPACITY){
+          int eeAddress = EEPROM_ADRESS_CAPACITY;
+          EEPROM.put(eeAddress, capacityConsumption);
+          eeAddress += sizeof(float);
+          EEPROM.put(eeAddress, cuVolt);
+        }
+        lastTimeCapacity = millis();
+      }
+
+      // Power
+      jetiEx.SetSensorValue( ID_POWER, cuAmp*cuVolt);
     }
-    
+
+    if(enableRx1){
+      jetiEx.SetSensorValue( ID_RX1_VOLTAGE, readAnalog_mV(Rx1_voltage,RX1_VOLTAGE_PIN)/10);
+    }
+
+    if(enableRx2){
+      jetiEx.SetSensorValue( ID_RX2_VOLTAGE, readAnalog_mV(Rx2_voltage,RX2_VOLTAGE_PIN)/10);
+    }
+
+    if(enableExtTemp){
+      // convert the value to resistance
+      float aIn = 1023.0 / analogRead(TEMPERATURE_PIN) - 1.0;
+      aIn = SERIESRESISTOR / aIn;
+
+      // convert resistance to temperature
+      float steinhart;
+      steinhart = aIn / THERMISTORNOMINAL;                // (R/Ro)
+      steinhart = log(steinhart);                         // ln(R/Ro)
+      steinhart /= BCOEFFICIENT;                          // 1/B * ln(R/Ro)
+      steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15);   // + (1/To)
+      steinhart = 1.0 / steinhart;                        // Invert
+      steinhart -= 273.15 - SELF_HEAT;                    // convert to °C and self-heat compensation 
+      
+      #ifdef UNIT_US
+        // EU to US conversions
+        steinhart = steinhart * 1.8 + 320;
+      #endif
+      
+      jetiEx.SetSensorValue( ID_EXT_TEMP, steinhart*10);
+    }
+   
   }
 
   #ifdef SUPPORT_GPS
