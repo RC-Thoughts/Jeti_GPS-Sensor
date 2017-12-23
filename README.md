@@ -4,10 +4,10 @@ Universeller Jeti Telemetrie Sensor mit vielen Möglichkeiten: Vario, GPS, Strom
 
 ## Telemetrie
 
-![EX-vario](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/analogInput-beta/Doc/img/EX_vario.bmp)
-![EX-GPS](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/analogInput-beta/Doc/img/EX_gps.bmp)
-![EX-GPS2](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/analogInput-beta/Doc/img/EX_gps2.bmp)
-![EX-VA](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/analogInput-beta/Doc/img/EX_volt_amp.bmp)
+![EX-vario](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/EX_vario.bmp)
+![EX-GPS](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/EX_gps.bmp)
+![EX-GPS2](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/EX_gps2.bmp)
+![EX-VA](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/EX_volt_amp.bmp)
 
 Mit Luftdrucksensor werden die Werte angezeigt:
 - Rel. und Abs. Höhe
@@ -47,7 +47,7 @@ Zur Messung von zB. der Motorentemperatur kann zusätzlich ein NTC-Temperaturwie
   
 ## JetiBox Einstellungen
 
-![JetiBox](https://github.com/nightflyer88/Jeti_VarioGPS-Sensor/blob/analogInput-beta/Doc/img/JetiBox_settings.png)
+![JetiBox](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/JetiBox_settings.png)
 
 Folgende Einstellungen können per Jetibox vorgenommen werden:
 - GPS: deaktiviert, Basic oder Extended
@@ -76,7 +76,7 @@ Folgende Einstellungen können per Jetibox vorgenommen werden:
 
 Der VarioGPS Sensor kann individuell nach seinen eigenen Wünschen zusammengestellt werden. Es ist möglich den Sensor als reines Vario zu betreiben, nur zur Vermessung des Antriebs, oder als Überwachung der Empfängerstromversorgung. Die benötigten Sensoren werden einfach am Arduino angelötet, und per Jetibox aktiviert.
 
-![schematic](https://github.com/nightflyer88/Jeti_VarioGPS-Sensor/blob/analogInput-beta/Doc/img/VarioGPS_schematic.png)
+![schematic](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/VarioGPS_schematic.png)
 
 ## Firmware laden
 
@@ -92,7 +92,7 @@ Für MAC User gibt es das Programm HexUploader und kann hier heruntergeladen wer
 
 Der HexUploader ist ein simples Programm zum laden der Firmware, einfach das Arduino Board per USB anschliessen, Arduino Type "Pro mini" und den USB-Serial Port auswählen. Nun das entsprechende hex-file auswählen und der upload startet automatisch.
 
-![hexuploader2](https://github.com/nightflyer88/Jeti_VarioGPS-Sensor/blob/analogInput-beta/Doc/img/HexUploader.png)
+![hexuploader2](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/HexUploader.png)
 
 ### Windows
 
@@ -100,4 +100,4 @@ Für Windows User kann der XLoader verwendet werden: http://russemotto.com/xload
 
 Der Xloader ist ebenfalls ein simples Programm, einfach das hex-file, device und COM-port auswählen und auf "Upload" drücken.
 
-![xloader](https://github.com/nightflyer88/Jeti_VarioGPS-Sensor/blob/analogInput-beta/Doc/img/xloader.png)
+![xloader](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/xloader.png)
