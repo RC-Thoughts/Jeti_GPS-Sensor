@@ -10,7 +10,7 @@
 
 #define V_REF                     3300        // set supply voltage from 1800 to 5500mV
 
-// supported sensors
+// supported devices
 #define SUPPORT_BMx280     
 #define SUPPORT_MS5611_LPS  
 #define SUPPORT_GPS

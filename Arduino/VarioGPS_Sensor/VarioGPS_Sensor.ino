@@ -6,11 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
   
 */
-#define VARIOGPS_VERSION "Version V2.1"
+#define VARIOGPS_VERSION "Version V2.1.1"
 /*
 
   ******************************************************************
   Versionen:
+  V2.1.1  13.01.17  kleine Fehlerbehebung mit libraries
   V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
                     startup-/auto-/maual-reset für Kapazitätsanzeige, SRAM-Speicheroptimierung    
   V2.0.2  03.12.17  Fehler in GPS Trip behoben

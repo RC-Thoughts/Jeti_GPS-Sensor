@@ -154,11 +154,13 @@ void HandleMenu()
   {
     switch ( _nMenu )
     {
+      #ifdef SUPPORT_GPS
       case setGpsMode:
         if(gpsSettings.mode > GPS_disabled){
           gpsSettings.mode--;
         }
         break;
+      #endif 
       case setFilterX:
         if (pressureSensor.filterX < 0.98) {
           pressureSensor.filterX += 0.01;
