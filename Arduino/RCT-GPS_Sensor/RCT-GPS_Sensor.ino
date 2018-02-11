@@ -1,6 +1,6 @@
 /*
   -----------------------------------------------------------
-            Jeti GPS Sensor v 1.5
+            Jeti GPS Sensor v 1.6
   -----------------------------------------------------------
 
    Based on the "Jeti EX MegaSensor for Teensy 3.x"
@@ -86,8 +86,8 @@ enum
 JETISENSOR_CONST sensorsEU[] PROGMEM =
 {
   // id             name          unit          data type           precision
-  { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLAT,      "Latitude",   "\xB0",       JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLON,      "Longitude",  "\xB0",       JetiSensor::TYPE_GPS, 0 },
   { ID_GPSSPEEDKM,  "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
   { ID_ALTMEREL,    "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
   { ID_ALTMEABS,    "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
@@ -97,8 +97,8 @@ JETISENSOR_CONST sensorsEU[] PROGMEM =
 JETISENSOR_CONST sensorsEUext[] PROGMEM =
 {
   // id             name          unit          data type           precision
-  { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLAT,      "Latitude",   "\xB0",       JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLON,      "Longitude",  "\xB0",       JetiSensor::TYPE_GPS, 0 },
   { ID_GPSSPEEDKM,  "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
   { ID_ALTMEREL,    "Rel. Altit", "m",          JetiSensor::TYPE_14b, 0 },
   { ID_ALTMEABS,    "Altitude",   "m",          JetiSensor::TYPE_14b, 0 },
@@ -114,8 +114,8 @@ JETISENSOR_CONST sensorsEUext[] PROGMEM =
 JETISENSOR_CONST sensorsUS[] PROGMEM =
 {
   // id             name          unit          data type           precision
-  { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLAT,      "Latitude",   "\xB0",       JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLON,      "Longitude",  "\xB0",       JetiSensor::TYPE_GPS, 0 },
   { ID_GPSSPEEDMI,  "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
   { ID_ALTFTREL,    "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
   { ID_ALTFTABS,    "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
@@ -125,8 +125,8 @@ JETISENSOR_CONST sensorsUS[] PROGMEM =
 JETISENSOR_CONST sensorsUSext[] PROGMEM =
 {
   // id             name          unit          data type           precision
-  { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLAT,      "Latitude",   "\xB0",       JetiSensor::TYPE_GPS, 0 },
+  { ID_GPSLON,      "Longitude",  "\xB0",       JetiSensor::TYPE_GPS, 0 },
   { ID_GPSSPEEDMI,  "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
   { ID_ALTFTREL,    "Rel. Altit", "ft",         JetiSensor::TYPE_14b, 0 },
   { ID_ALTFTABS,    "Altitude",   "ft",         JetiSensor::TYPE_14b, 0 },
@@ -448,7 +448,7 @@ void HandleMenu()
   {
     case 0:
       jetiEx.SetJetiboxText( JetiExProtocol::LINE1, " RCT Jeti Tools" );
-      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor v.1.5" );
+      jetiEx.SetJetiboxText( JetiExProtocol::LINE2, "GPS Sensor v.1.6" );
       _bSetDisplay = false;
       break;
     case 1:
