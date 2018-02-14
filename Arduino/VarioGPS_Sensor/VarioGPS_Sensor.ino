@@ -654,6 +654,8 @@ void loop()
   jetiEx.SetSensorValue( ID_ALTREL, uRelAltitude );
   jetiEx.SetSensorValue( ID_ALTABS, uAbsAltitude );
 
+  #ifdef SUPPORT_JETIBOX_MENU
   HandleMenu();
+  #endif
   jetiEx.DoJetiSend();
 }
