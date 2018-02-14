@@ -6,11 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
   
 */
-#define VARIOGPS_VERSION "Version V2.1.1"
+#define VARIOGPS_VERSION "Version V2.2b"
 /*
 
   ******************************************************************
   Versionen:
+  V2.2    beta      Jeder Sensor kann mit #define deaktiviert werden
   V2.1.1  13.01.17  kleine Fehlerbehebung mit libraries
   V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
                     startup-/auto-/maual-reset für Kapazitätsanzeige, SRAM-Speicheroptimierung    
@@ -228,26 +229,36 @@ void setup()
     if (EEPROM.read(1) != 0xFF) {
       gpsSettings.mode = EEPROM.read(1);
     }
-  #endif
   
   if (EEPROM.read(2) != 0xFF) {
     gpsSettings.distance3D = EEPROM.read(2);
   }
+  #endif
+
+  #ifdef SUPPORT_MAIN_DRIVE
   if (EEPROM.read(3) != 0xFF) {
     currentSensor = EEPROM.read(3);
   }
   if (EEPROM.read(5) != 0xFF) {
     capacityMode = EEPROM.read(5);
   }
+  #endif
+
+  #ifdef SUPPORT_RX_VOLTAGE
   if (EEPROM.read(6) != 0xFF) {
     enableRx1 = EEPROM.read(6);
   }
   if (EEPROM.read(7) != 0xFF) {
     enableRx2 = EEPROM.read(7);
   }
+  #endif
+
+  #ifdef SUPPORT_EXT_TEMP
   if (EEPROM.read(8) != 0xFF) {
     enableExtTemp = EEPROM.read(8);
   }
+  #endif
+  
   if (EEPROM.read(10) != 0xFF) {
     pressureSensor.filterX = (float)EEPROM.read(10) / 100;
   }
@@ -268,7 +279,7 @@ void setup()
   if(pressureSensor.type == unknown){
     jetiEx.SetSensorActive( ID_VARIO, false, sensors );
   }
-  
+
   if(gpsSettings.mode == GPS_basic || pressureSensor.type != BME280){
     jetiEx.SetSensorActive( ID_HUMIDITY, false, sensors );
   }
@@ -302,6 +313,7 @@ void setup()
     jetiEx.SetSensorActive( ID_CURRENT, false, sensors );
     jetiEx.SetSensorActive( ID_CAPACITY, false, sensors );
     jetiEx.SetSensorActive( ID_POWER, false, sensors );
+    #ifdef SUPPORT_MAIN_DRIVE
   }else{
     if(capacityMode > startup){
       // read capacity from eeprom
@@ -317,8 +329,9 @@ void setup()
         }
       }
     }
+    #endif
   }
-
+  
   if(!enableRx1){
     jetiEx.SetSensorActive( ID_RX1_VOLTAGE, false, sensors );
   }
@@ -344,7 +357,8 @@ void loop()
   static long uAbsAltitude = 0;
 
   if((millis() - lastTime) > MEASURING_INTERVAL){
-    
+
+    #ifdef SUPPORT_BMx280 || SUPPORT_MS5611_LPS
     if(pressureSensor.type != unknown){
       static bool setStartAltitude = false;
       static float lastVariofilter = 0;
@@ -426,10 +440,12 @@ void loop()
       jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
       
     }
+    #endif
 
     lastTime = millis();
 
     // analog input
+    #ifdef SUPPORT_MAIN_DRIVE
     if(currentSensor){
       // Voltage
       float cuVolt = readAnalog_mV(getVoltageSensorTyp(),VOLTAGE_PIN)/1000.0;
@@ -472,7 +488,9 @@ void loop()
       // Power
       jetiEx.SetSensorValue( ID_POWER, cuAmp*cuVolt);
     }
+    #endif
 
+    #ifdef SUPPORT_RX_VOLTAGE
     if(enableRx1){
       jetiEx.SetSensorValue( ID_RX1_VOLTAGE, readAnalog_mV(Rx1_voltage,RX1_VOLTAGE_PIN)/10);
     }
@@ -480,7 +498,9 @@ void loop()
     if(enableRx2){
       jetiEx.SetSensorValue( ID_RX2_VOLTAGE, readAnalog_mV(Rx2_voltage,RX2_VOLTAGE_PIN)/10);
     }
+    #endif
 
+    #ifdef SUPPORT_EXT_TEMP
     if(enableExtTemp){
       // convert the value to resistance
       float aIn = 1023.0 / analogRead(TEMPERATURE_PIN) - 1.0;
@@ -502,6 +522,7 @@ void loop()
       
       jetiEx.SetSensorValue( ID_EXT_TEMP, steinhart*10);
     }
+    #endif
    
   }
 
