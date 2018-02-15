@@ -6,13 +6,13 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
   
 */
-#define VARIOGPS_VERSION "Version V2.2b"
+#define VARIOGPS_VERSION "Version V2.1.2"
 /*
 
   ******************************************************************
   Versionen:
-  V2.2    beta      Jeder Sensor kann mit #define deaktiviert werden
-  V2.1.1  13.01.17  kleine Fehlerbehebung mit libraries
+  V2.1.2  14.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
+  V2.1.1  13.01.18  kleine Fehlerbehebung mit libraries
   V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
                     startup-/auto-/maual-reset für Kapazitätsanzeige, SRAM-Speicheroptimierung    
   V2.0.2  03.12.17  Fehler in GPS Trip behoben
@@ -129,8 +129,7 @@ struct {
 
 struct {
   uint8_t type = unknown;
-  float filterX;
-  float filterY;
+  float smoothingValue;
   long deadzone;
 } pressureSensor;
 
@@ -203,23 +202,19 @@ void setup()
   
   switch (pressureSensor.type){
     case BMP280:
-      pressureSensor.filterX = BMx280_FILTER_X;
-      pressureSensor.filterY = BMx280_FILTER_Y;
+      pressureSensor.smoothingValue = BMx280_SMOOTHING;
       pressureSensor.deadzone = BMx280_DEADZONE;
       break;
     case BME280:
-      pressureSensor.filterX = BMx280_FILTER_X;
-      pressureSensor.filterY = BMx280_FILTER_Y;
+      pressureSensor.smoothingValue = BMx280_SMOOTHING;
       pressureSensor.deadzone = BMx280_DEADZONE;
       break;
     case MS5611_ :
-      pressureSensor.filterX = MS5611_FILTER_X;
-      pressureSensor.filterY = MS5611_FILTER_Y;
+      pressureSensor.smoothingValue = MS5611_SMOOTHING;
       pressureSensor.deadzone = MS5611_DEADZONE;
       break;
     case LPS_ :
-      pressureSensor.filterX = LPS_FILTER_X;
-      pressureSensor.filterY = LPS_FILTER_Y;
+      pressureSensor.smoothingValue = LPS_SMOOTHING;
       pressureSensor.deadzone = LPS_DEADZONE;
       break;
   }
@@ -229,41 +224,28 @@ void setup()
     if (EEPROM.read(1) != 0xFF) {
       gpsSettings.mode = EEPROM.read(1);
     }
+  #endif
   
   if (EEPROM.read(2) != 0xFF) {
     gpsSettings.distance3D = EEPROM.read(2);
   }
-  #endif
-
-  #ifdef SUPPORT_MAIN_DRIVE
   if (EEPROM.read(3) != 0xFF) {
     currentSensor = EEPROM.read(3);
   }
   if (EEPROM.read(5) != 0xFF) {
     capacityMode = EEPROM.read(5);
   }
-  #endif
-
-  #ifdef SUPPORT_RX_VOLTAGE
   if (EEPROM.read(6) != 0xFF) {
     enableRx1 = EEPROM.read(6);
   }
   if (EEPROM.read(7) != 0xFF) {
     enableRx2 = EEPROM.read(7);
   }
-  #endif
-
-  #ifdef SUPPORT_EXT_TEMP
   if (EEPROM.read(8) != 0xFF) {
     enableExtTemp = EEPROM.read(8);
   }
-  #endif
-  
-  if (EEPROM.read(10) != 0xFF) {
-    pressureSensor.filterX = (float)EEPROM.read(10) / 100;
-  }
   if (EEPROM.read(11) != 0xFF) {
-    pressureSensor.filterY = (float)EEPROM.read(11) / 100;
+    pressureSensor.smoothingValue = (float)EEPROM.read(11) / 100;
   }
   if (EEPROM.read(12) != 0xFF) {
     pressureSensor.deadzone = EEPROM.read(12);
@@ -279,7 +261,7 @@ void setup()
   if(pressureSensor.type == unknown){
     jetiEx.SetSensorActive( ID_VARIO, false, sensors );
   }
-
+  
   if(gpsSettings.mode == GPS_basic || pressureSensor.type != BME280){
     jetiEx.SetSensorActive( ID_HUMIDITY, false, sensors );
   }
@@ -313,7 +295,6 @@ void setup()
     jetiEx.SetSensorActive( ID_CURRENT, false, sensors );
     jetiEx.SetSensorActive( ID_CAPACITY, false, sensors );
     jetiEx.SetSensorActive( ID_POWER, false, sensors );
-    #ifdef SUPPORT_MAIN_DRIVE
   }else{
     if(capacityMode > startup){
       // read capacity from eeprom
@@ -329,9 +310,8 @@ void setup()
         }
       }
     }
-    #endif
   }
-  
+
   if(!enableRx1){
     jetiEx.SetSensorActive( ID_RX1_VOLTAGE, false, sensors );
   }
@@ -357,8 +337,7 @@ void loop()
   static long uAbsAltitude = 0;
 
   if((millis() - lastTime) > MEASURING_INTERVAL){
-
-    #ifdef SUPPORT_BMx280 || SUPPORT_MS5611_LPS
+    
     if(pressureSensor.type != unknown){
       static bool setStartAltitude = false;
       static float lastVariofilter = 0;
@@ -410,12 +389,11 @@ void loop()
       lastAltitude = curAltitude;
     
       // Vario Filter
-      float fX;
-      float fY = uVario;
-      fX = pressureSensor.filterX * lastVariofilter;
-      fY = pressureSensor.filterY * fY;
-      lastVariofilter = fX + fY;
-      uVario = lastVariofilter;
+      // IIR Low Pass Filter
+      // y[i] := α * x[i] + (1-α) * y[i-1]
+      //      := y[i-1] + α * (x[i] - y[i-1])
+      // see: https://en.wikipedia.org/wiki/Low-pass_filter#Simple_infinite_impulse_response_filter
+      uVario = lastVariofilter + pressureSensor.smoothingValue * (uVario - lastVariofilter);
       
       // Dead zone filter
       if (uVario > pressureSensor.deadzone) {
@@ -440,12 +418,10 @@ void loop()
       jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
       
     }
-    #endif
 
     lastTime = millis();
 
     // analog input
-    #ifdef SUPPORT_MAIN_DRIVE
     if(currentSensor){
       // Voltage
       float cuVolt = readAnalog_mV(getVoltageSensorTyp(),VOLTAGE_PIN)/1000.0;
@@ -488,9 +464,7 @@ void loop()
       // Power
       jetiEx.SetSensorValue( ID_POWER, cuAmp*cuVolt);
     }
-    #endif
 
-    #ifdef SUPPORT_RX_VOLTAGE
     if(enableRx1){
       jetiEx.SetSensorValue( ID_RX1_VOLTAGE, readAnalog_mV(Rx1_voltage,RX1_VOLTAGE_PIN)/10);
     }
@@ -498,9 +472,7 @@ void loop()
     if(enableRx2){
       jetiEx.SetSensorValue( ID_RX2_VOLTAGE, readAnalog_mV(Rx2_voltage,RX2_VOLTAGE_PIN)/10);
     }
-    #endif
 
-    #ifdef SUPPORT_EXT_TEMP
     if(enableExtTemp){
       // convert the value to resistance
       float aIn = 1023.0 / analogRead(TEMPERATURE_PIN) - 1.0;
@@ -522,7 +494,6 @@ void loop()
       
       jetiEx.SetSensorValue( ID_EXT_TEMP, steinhart*10);
     }
-    #endif
    
   }
 
@@ -654,8 +625,6 @@ void loop()
   jetiEx.SetSensorValue( ID_ALTREL, uRelAltitude );
   jetiEx.SetSensorValue( ID_ALTABS, uAbsAltitude );
 
-  #ifdef SUPPORT_JETIBOX_MENU
   HandleMenu();
-  #endif
   jetiEx.DoJetiSend();
 }
