@@ -14,20 +14,13 @@ enum screenViews {
   setDistanceMode,
   #endif
   detectedPressureSensor,
-  setFilterX,
-  setFilterY,
+  setVarioSmoothingValue,
   setDeadzone,
-  #ifdef SUPPORT_MAIN_DRIVE
   setMainDrive,
   setCapacityMode,
-  #endif
-  #ifdef SUPPORT_RX_VOLTAGE
   enableRx1Voltage,
   enableRx2Voltage,
-  #endif
-  #ifdef SUPPORT_EXT_TEMP
   enableExternTemp,
-  #endif
   saveSettings,
   defaultSettings
 };
@@ -42,20 +35,13 @@ const char menuText[][17] PROGMEM=
   {"GPS distance:"},
   #endif
   {"Pressure sensor:"},
-  {"Vario filter"},
-  {"Vario filter"},
+  {"Vario smoothing:"},
   {"Vario deadzone:"},
-  #ifdef SUPPORT_MAIN_DRIVE
   {"Main drive:"},
   {"Capacity reset:"},
-  #endif
-  #ifdef SUPPORT_RX_VOLTAGE
   {"Rx1 voltage:"},
   {"Rx2 voltage:"},
-  #endif
-  #ifdef SUPPORT_EXT_TEMP
   {"Ext. Temp:"},
-  #endif
   {"Save and restart"},
   {"Load defaults"}
 };
@@ -173,14 +159,9 @@ void HandleMenu()
         }
         break;
       #endif 
-      case setFilterX:
-        if (pressureSensor.filterX < 0.98) {
-          pressureSensor.filterX += 0.01;
-        }
-        break;
-      case setFilterY:
-        if (pressureSensor.filterY < 0.98) {
-          pressureSensor.filterY += 0.01;
+      case setVarioSmoothingValue:
+        if (pressureSensor.smoothingValue < 1.0) {
+          pressureSensor.smoothingValue = (float)((int(pressureSensor.smoothingValue*100))+1)/100;
         }
         break;
       case setDeadzone:
@@ -188,7 +169,6 @@ void HandleMenu()
           pressureSensor.deadzone++;
         }
         break;
-      #ifdef SUPPORT_MAIN_DRIVE
       case setMainDrive:
         if (currentSensor > mainDrive_disabled) {
           currentSensor--;
@@ -199,7 +179,6 @@ void HandleMenu()
           capacityMode--;
         }
         break;
-      #endif 
     }
     
     _bSetDisplay = true;
@@ -224,14 +203,9 @@ void HandleMenu()
         gpsSettings.distance3D = !gpsSettings.distance3D;
         break;
       #endif
-      case setFilterX:
-        if (pressureSensor.filterX > 0.01) {
-          pressureSensor.filterX -= 0.01;
-        }
-        break;
-      case setFilterY:
-        if (pressureSensor.filterY > 0.01) {
-          pressureSensor.filterY -= 0.01;
+      case setVarioSmoothingValue:
+        if (pressureSensor.smoothingValue > 0.0) {
+          pressureSensor.smoothingValue = (float)((int(pressureSensor.smoothingValue*100))-1)/100;
         }
         break;
       case setDeadzone:
@@ -239,7 +213,6 @@ void HandleMenu()
           pressureSensor.deadzone--;
         }
         break;
-      #ifdef SUPPORT_MAIN_DRIVE
       case setMainDrive:
         if (currentSensor < ACS758_200U) {
           currentSensor++;
@@ -250,42 +223,24 @@ void HandleMenu()
           capacityMode++;
         }
         break;
-      #endif
-      #ifdef SUPPORT_RX_VOLTAGE
       case enableRx1Voltage:
         enableRx1 = !enableRx1;
         break;
       case enableRx2Voltage:
         enableRx2 = !enableRx2;
         break;
-      #endif
-      #ifdef SUPPORT_EXT_TEMP
       case enableExternTemp:
         enableExtTemp = !enableExtTemp;
         break;
-      #endif
       case saveSettings:
-        #ifdef SUPPORT_GPS
         EEPROM.write(1, gpsSettings.mode);
         EEPROM.write(2, gpsSettings.distance3D);
-        #endif
-        
-        #ifdef SUPPORT_MAIN_DRIVE
         EEPROM.write(3, currentSensor);
         EEPROM.write(5, capacityMode);
-        #endif
-
-        #ifdef SUPPORT_RX_VOLTAGE
         EEPROM.write(6, enableRx1);
         EEPROM.write(7, enableRx2);
-        #endif
-
-        #ifdef SUPPORT_EXT_TEMP
         EEPROM.write(8, enableExtTemp);
-        #endif
-        
-        EEPROM.write(10,int(pressureSensor.filterX*100));
-        EEPROM.write(11,int(pressureSensor.filterY*100));
+        EEPROM.write(11,pressureSensor.smoothingValue);
         EEPROM.write(12,pressureSensor.deadzone);
         resetFunc();
       case defaultSettings:
@@ -326,19 +281,14 @@ void HandleMenu()
     case detectedPressureSensor:
       memcpy_P( _bufferLine2, &detectedPressureSensorText[pressureSensor.type], 16 );
       break;
-    case setFilterX:
+    case setVarioSmoothingValue:
       if(pressureSensor.type == unknown)goto startHandleMenu;
-      sprintf( _bufferLine2, " X: 0.%2d",int(pressureSensor.filterX*100));
-      break;
-    case setFilterY:
-      if(pressureSensor.type == unknown)goto startHandleMenu;
-      sprintf( _bufferLine2, " Y: 0.%2d",int(pressureSensor.filterY*100));
+      sprintf( _bufferLine2, " %2d%%",int(pressureSensor.smoothingValue*100));
       break;
     case setDeadzone:
       if(pressureSensor.type == unknown)goto startHandleMenu;
       sprintf( _bufferLine2, " %2dcm",pressureSensor.deadzone);
       break;
-    #ifdef SUPPORT_MAIN_DRIVE
     case setMainDrive:
       memcpy_P( _bufferLine2, &setMainDriveText[currentSensor], 16 );
       break;
@@ -346,20 +296,15 @@ void HandleMenu()
       if(currentSensor == mainDrive_disabled)goto startHandleMenu;
       memcpy_P( _bufferLine2, &setCapacityModeText[capacityMode], 16 );
       break;
-    #endif
-    #ifdef SUPPORT_RX_VOLTAGE
     case enableRx1Voltage:
       memcpy_P( _bufferLine2, &enableText[enableRx1], 16 );
       break;
     case enableRx2Voltage:
       memcpy_P( _bufferLine2, &enableText[enableRx2], 16 );
       break;
-    #endif
-    #ifdef SUPPORT_EXT_TEMP
     case enableExternTemp:
       memcpy_P( _bufferLine2, &enableText[enableExtTemp], 16 );
       break;
-    #endif
   }
   
   jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _bufferLine1 );

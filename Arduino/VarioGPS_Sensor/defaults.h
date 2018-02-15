@@ -6,20 +6,14 @@
 
 // **** General settings ****************
 
-//#define UNIT_US                             // uncomment to enable US units
+//#define UNIT_US                             //uncomment to enable US units
 
 #define V_REF                     3300        // set supply voltage from 1800 to 5500mV
 
 // supported devices
-#define SUPPORT_BMx280                        // comment to disable devices
+#define SUPPORT_BMx280     
 #define SUPPORT_MS5611_LPS  
 #define SUPPORT_GPS
-#define SUPPORT_MAIN_DRIVE
-#define SUPPORT_RX_VOLTAGE
-#define SUPPORT_EXT_TEMP
-
-// support JetiBox Menu
-#define SUPPORT_JETIBOX_MENU
 
 // **************************************
 
@@ -141,18 +135,15 @@ enum {
 // dead zone filter in centimeter (Even if you use US-units!)
 
 // BMP280/BME280
-#define BMx280_FILTER_X 0.88
-#define BMx280_FILTER_Y 0.15 
+#define BMx280_SMOOTHING 0.15 
 #define BMx280_DEADZONE 5
 
 // MS5611
-#define MS5611_FILTER_X 0.8
-#define MS5611_FILTER_Y 0.2
+#define MS5611_SMOOTHING 0.20
 #define MS5611_DEADZONE 0
 
 // LPS (LPS311)
-#define LPS_FILTER_X 0.8
-#define LPS_FILTER_Y 0.2
+#define LPS_SMOOTHING 0.20
 #define LPS_DEADZONE 0
 
 
