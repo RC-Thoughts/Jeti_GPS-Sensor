@@ -11,9 +11,15 @@
 #define V_REF                     3300        // set supply voltage from 1800 to 5500mV
 
 // supported devices
-#define SUPPORT_BMx280     
+#define SUPPORT_BMx280                        // comment to disable devices
 #define SUPPORT_MS5611_LPS  
 #define SUPPORT_GPS
+#define SUPPORT_MAIN_DRIVE
+#define SUPPORT_RX_VOLTAGE
+#define SUPPORT_EXT_TEMP
+
+// support JetiBox Menu
+#define SUPPORT_JETIBOX_MENU
 
 // **************************************
 
