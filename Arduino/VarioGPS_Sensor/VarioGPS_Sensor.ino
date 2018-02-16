@@ -6,11 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
   
 */
-#define VARIOGPS_VERSION "Version V2.1.2"
+#define VARIOGPS_VERSION "Version V2.1.3"
 /*
 
   ******************************************************************
   Versionen:
+  V2.1.3  15.02.18  Smoothing-/Glättungs Faktor in % invertiert => je größer desto "gedämpter"  (by RS)
   V2.1.2  14.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
   V2.1.1  13.01.18  kleine Fehlerbehebung mit libraries
   V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
@@ -244,8 +245,8 @@ void setup()
   if (EEPROM.read(8) != 0xFF) {
     enableExtTemp = EEPROM.read(8);
   }
-  if (EEPROM.read(11) != 0xFF) {
-    pressureSensor.smoothingValue = (float)EEPROM.read(11) / 100;
+  if (EEPROM.read(10) != 0xFF) {
+    pressureSensor.smoothingValue = (float)EEPROM.read(10) / 100;
   }
   if (EEPROM.read(12) != 0xFF) {
     pressureSensor.deadzone = EEPROM.read(12);
@@ -392,9 +393,13 @@ void loop()
       // IIR Low Pass Filter
       // y[i] := α * x[i] + (1-α) * y[i-1]
       //      := y[i-1] + α * (x[i] - y[i-1])
+      // mit α = 1- β
+      // y[i] := (1-β) * x[i] + β * y[i-1]
+      //      := x[i] - β * x[i] + β * y[i-1]
+      //      := x[i] + β (y[i-1] - x[i])
       // see: https://en.wikipedia.org/wiki/Low-pass_filter#Simple_infinite_impulse_response_filter
-      uVario = lastVariofilter + pressureSensor.smoothingValue * (uVario - lastVariofilter);
-      
+
+      uVario = uVario + pressureSensor.smoothingValue * (lastVariofilter - uVario);
       // Dead zone filter
       if (uVario > pressureSensor.deadzone) {
         uVario -= pressureSensor.deadzone;
