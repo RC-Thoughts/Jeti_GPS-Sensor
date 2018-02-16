@@ -141,15 +141,15 @@ enum {
 // dead zone filter in centimeter (Even if you use US-units!)
 
 // BMP280/BME280
-#define BMx280_SMOOTHING 0.15 
+#define BMx280_SMOOTHING 0.85 
 #define BMx280_DEADZONE 5
 
 // MS5611
-#define MS5611_SMOOTHING 0.20
+#define MS5611_SMOOTHING 0.80
 #define MS5611_DEADZONE 0
 
 // LPS (LPS311)
-#define LPS_SMOOTHING 0.20
+#define LPS_SMOOTHING 0.80
 #define LPS_DEADZONE 0
 
 
