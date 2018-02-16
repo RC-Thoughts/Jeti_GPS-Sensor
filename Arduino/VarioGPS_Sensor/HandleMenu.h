@@ -272,7 +272,7 @@ void HandleMenu()
         EEPROM.write(8, enableExtTemp);
         #endif
         
-        EEPROM.write(11,pressureSensor.smoothingValue);
+        EEPROM.write(10,int(pressureSensor.smoothingValue*100));
         EEPROM.write(12,pressureSensor.deadzone);
         resetFunc();
       case defaultSettings:
