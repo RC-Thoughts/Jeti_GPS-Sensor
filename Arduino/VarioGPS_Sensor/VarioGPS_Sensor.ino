@@ -414,6 +414,7 @@ void loop()
       // see: https://en.wikipedia.org/wiki/Low-pass_filter#Simple_infinite_impulse_response_filter
 
       uVario = uVario + pressureSensor.smoothingValue * (lastVariofilter - uVario);
+      lastVariofilter = uVario;
       // Dead zone filter
       if (uVario > pressureSensor.deadzone) {
         uVario -= pressureSensor.deadzone;
