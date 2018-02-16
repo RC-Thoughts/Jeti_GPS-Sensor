@@ -11,7 +11,7 @@
 
   ******************************************************************
   Versionen:
-  V2.2    15.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
+  V2.2    16.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden
   V2.1.1  13.01.18  kleine Fehlerbehebung mit libraries
   V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
