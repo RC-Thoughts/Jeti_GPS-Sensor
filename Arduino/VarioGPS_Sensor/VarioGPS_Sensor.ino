@@ -6,11 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
   
 */
-#define VARIOGPS_VERSION "Version V2.2"
+#define VARIOGPS_VERSION "Version V2.3b"
 /*
 
   ******************************************************************
   Versionen:
+  V2.3    beta      Test mit MPXV7002 für Airspeed 
   V2.2    16.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden
   V2.1.1  13.01.18  kleine Fehlerbehebung mit libraries
@@ -114,6 +115,11 @@ JetiExProtocol jetiEx;
   #include <LPS.h>
   MS5611 ms5611;
   LPS lps;
+#endif
+
+#ifdef SUPPORT_MPXV7002
+  #include "SpeedPressure.h"
+  Pressure airSpeed(AIRSPEED_PIN);
 #endif
 
 #if V_REF < 1800 || V_REF > 5500
@@ -220,6 +226,10 @@ void setup()
       pressureSensor.deadzone = LPS_DEADZONE;
       break;
   }
+  #endif
+
+  #ifdef SUPPORT_MPXV7002
+    airSpeed.Init();
   #endif
  
   // read settings from eeprom 
@@ -412,9 +422,9 @@ void loop()
       //      := x[i] - β * x[i] + β * y[i-1]
       //      := x[i] + β (y[i-1] - x[i])
       // see: https://en.wikipedia.org/wiki/Low-pass_filter#Simple_infinite_impulse_response_filter
-
       uVario = uVario + pressureSensor.smoothingValue * (lastVariofilter - uVario);
       lastVariofilter = uVario;
+      
       // Dead zone filter
       if (uVario > pressureSensor.deadzone) {
         uVario -= pressureSensor.deadzone;
@@ -441,6 +451,19 @@ void loop()
     #endif
 
     lastTime = millis();
+
+    #ifdef SUPPORT_MPXV7002
+      static int uAirSpeed = 0;
+      static int lastAirSpeed = 0;
+      
+      uAirSpeed = airSpeed.GetAirSpeed();
+      
+      // IIR Low Pass Filter
+      uAirSpeed = uAirSpeed + AIRSPEED_SMOOTHING * (lastAirSpeed - uAirSpeed);
+      lastAirSpeed = uAirSpeed;
+      
+      jetiEx.SetSensorValue( ID_AIRSPEED, uAirSpeed );
+    #endif
 
     // analog input
     #ifdef SUPPORT_MAIN_DRIVE
