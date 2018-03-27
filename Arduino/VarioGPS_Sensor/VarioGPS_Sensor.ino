@@ -4,18 +4,20 @@
   ------------------------------------------------------------------
             *** Universeller Jeti Telemetrie Sensor ***
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
-  
+
 */
-#define VARIOGPS_VERSION "Version V2.2"
+#define VARIOGPS_VERSION "Version V2.2.1"
 /*
 
   ******************************************************************
   Versionen:
-  V2.2    16.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
+
+  V2.2.1  26.03.18  Bugfix bei float<->int casting Smoothing Factor (by RS)
+  V2.2    15.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden
   V2.1.1  13.01.18  kleine Fehlerbehebung mit libraries
-  V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt, 
-                    startup-/auto-/maual-reset für Kapazitätsanzeige, SRAM-Speicheroptimierung    
+  V2.1    23.12.17  Analog Messeingänge stark überarbeitet, NTC-Temperaturmessung hinzugefügt,
+                    startup-/auto-/maual-reset für Kapazitätsanzeige, SRAM-Speicheroptimierung
   V2.0.2  03.12.17  Fehler in GPS Trip behoben
   V2.0.1  21.11.17  Fehler bei Spannungsmessung behoben
   V2.0    20.11.17  GPS Trip[km] und verbrauchte Kapazität[mAh] eingebaut, Stromsensoren ACS712 eingebaut
@@ -32,33 +34,33 @@
 
   ******************************************************************
   Unterstützte Hardware:
-  
+
   - Arduino Pro Mini 3.3V-8Mhz/5V-16Mhz
   - GPS-Modul mit NMEA Protokoll und UART@9600baud
-  - Luftdrucksensoren: BMP280, BME280, MS5611, LPS 
+  - Luftdrucksensoren: BMP280, BME280, MS5611, LPS
   - Stromsensoren @3.3V/5V Betriebsspannung:        AttoPilot Module @3.3V: 45A/13.6V - 90A/50V - 180A/50V (@5V: 45A/20.6V - 90A/60V - 180A/60V)
                                                     APM2.5 PowerModul @5V: 90A/50V (@3.3V: 58A/33.4V)
                                                     ACS758_50B, ACS758_100B, ACS758_150B, ACS758_200B, ACS758_50U, ACS758_100U, ACS758_150U, ACS758_200U
   - zusätzliche Stromsensoren @5V Betriebsspannung: ACS712_05, ACS712_20, ACS712_30
-  
+
 
 
   ******************************************************************
   Anzeige:
-  
+
   Nur mit Luftdrucksensor werden die Werte angezeigt:
   - Rel. und Abs. Höhe
   - Vario
   - Luftdruck
   - Temperatur
   - Luftfeuchte (nur mit BME280)
-  
+
   Im GPS Basic Mode werden die Werte angezeigt:
   - Position
-  - Geschwindigkeit 
+  - Geschwindigkeit
   - Rel. und Abs. Höhe
   - Vario
-  
+
   Im GPS Extended Mode werden zusätzlich die Werte angezeigt:
   - Distanz vom Modell zum Startpunkt (2D oder 3D)
   - zurückgelegte Strecke (Trip)
@@ -68,25 +70,25 @@
   - HDOP (Horizontaler Faktor der Positionsgenauigkeit)
   - Luftdruck
   - Temperatur
-  - Luftfeuchtigkeit 
+  - Luftfeuchtigkeit
 
   An den Analogeingängen sind folgende Messungen möglich:
   - Strom- und Spannung für Hauptantrieb mit verbrauchter Kapazität[mAh] und Leistung[W]
   - 2x Empfängerspannung
   - Temperatur mit NTC-Wiederstand von -55 bis +155°C
-  
+
   Folgende Einstellungen können per Jetibox vorgenommen werden:
   - GPS: deaktiviert, Basic oder Extended
   - GPS Distanz: 2D oder 3D
   - Vario Filterparameter X, Y und Deadzone
-  - Stromsensor für Hauptantrieb 
-  - Einstellung Reset der Kapazität: 
+  - Stromsensor für Hauptantrieb
+  - Einstellung Reset der Kapazität:
         STARTUP(Wert ist nach jedem Einschalten auf 0)
         AUTO(Wert wird gespeichert und erst zurückgesetzt wenn ein geladener Akku angeschlossen wird)
         MANUAL(Wert muss manuell per Jetibox zurückgesetzt werden mit RESET OFFSET)
   - Rx1, Rx2 Empfängerspannungsmessung aktivieren
   - Temperaturmessung aktivieren
-   
+
 */
 
 #include <JetiExSerial.h>
@@ -97,14 +99,14 @@
 
 JetiExProtocol jetiEx;
 
-#ifdef SUPPORT_GPS 
+#ifdef SUPPORT_GPS
   #include <TinyGPS++.h>
   #include <AltSoftSerial.h>
   TinyGPSPlus gps;
   AltSoftSerial gpsSerial;
 #endif
 
-#ifdef SUPPORT_BMx280 
+#ifdef SUPPORT_BMx280
   #include "BMx_Sensor.h"
   BMx_Sensor boschPressureSensor;
 #endif
@@ -120,7 +122,7 @@ JetiExProtocol jetiEx;
   #error unsupported supply voltage
 #endif
 
-#define MEASURING_INTERVAL        180         //ms 
+#define MEASURING_INTERVAL        180         //ms
 #define EEPROM_ADRESS_CAPACITY    20
 
 struct {
@@ -179,13 +181,13 @@ uint8_t getVoltageSensorTyp(){
 void setup()
 {
   // identify sensor
-  #ifdef SUPPORT_BMx280 
+  #ifdef SUPPORT_BMx280
     pressureSensor.type = boschPressureSensor.begin(0x76);
     if(pressureSensor.type == unknown){
       pressureSensor.type = boschPressureSensor.begin(0x77);
     }
-  #endif 
-  #ifdef SUPPORT_MS5611_LPS  
+  #endif
+  #ifdef SUPPORT_MS5611_LPS
     if(pressureSensor.type == unknown){
       if (lps.init()) {
         Wire.begin();
@@ -221,8 +223,8 @@ void setup()
       break;
   }
   #endif
- 
-  // read settings from eeprom 
+
+  // read settings from eeprom
   #ifdef SUPPORT_GPS
   if (EEPROM.read(1) != 0xFF) {
     gpsSettings.mode = EEPROM.read(1);
@@ -255,7 +257,7 @@ void setup()
     enableExtTemp = EEPROM.read(8);
   }
   #endif
-  
+
   if (EEPROM.read(10) != 0xFF) {
     pressureSensor.smoothingValue = (float)EEPROM.read(10) / 100;
   }
@@ -267,13 +269,13 @@ void setup()
     // init GPS
     gpsSerial.begin(GPSBaud);
   #endif
-  
+
 
   // Setup sensors
   if(pressureSensor.type == unknown){
     jetiEx.SetSensorActive( ID_VARIO, false, sensors );
   }
-  
+
   if(gpsSettings.mode == GPS_basic || pressureSensor.type != BME280){
     jetiEx.SetSensorActive( ID_HUMIDITY, false, sensors );
   }
@@ -292,7 +294,7 @@ void setup()
     jetiEx.SetSensorActive( ID_ALTREL, false, sensors );
     jetiEx.SetSensorActive( ID_ALTABS, false, sensors );
   }
-  
+
   if(gpsSettings.mode != GPS_extended){
     jetiEx.SetSensorActive( ID_DIST, false, sensors );
     jetiEx.SetSensorActive( ID_TRIP, false, sensors );
@@ -345,7 +347,7 @@ void setup()
 }
 
 void loop()
-{ 
+{
   static long startAltitude = 0;
   static long uRelAltitude = 0;
   static long uAbsAltitude = 0;
@@ -362,10 +364,10 @@ void loop()
       int uTemperature;
       long uVario;
       int uHumidity;
-      
+
       // Read sensormodule values
       switch (pressureSensor.type){
-        #ifdef SUPPORT_MS5611_LPS  
+        #ifdef SUPPORT_MS5611_LPS
         case MS5611_:
           uPressure = ms5611.readPressure(true); // In Pascal (100 Pa = 1 hPa = 1 mbar)
           curAltitude = ms5611.getAltitude(uPressure, 101325) * 100; // In Centimeter
@@ -399,10 +401,10 @@ void loop()
         uRelAltitude = (curAltitude - startAltitude) / 10;
         uAbsAltitude = curAltitude / 100;
       }
-       
+
       uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
       lastAltitude = curAltitude;
-    
+
       // Vario Filter
       // IIR Low Pass Filter
       // y[i] := α * x[i] + (1-α) * y[i-1]
@@ -436,7 +438,7 @@ void loop()
       jetiEx.SetSensorValue( ID_VARIO, uVario );
       jetiEx.SetSensorValue( ID_PRESSURE, uPressure );
       jetiEx.SetSensorValue( ID_TEMPERATURE, uTemperature );
-      
+
     }
     #endif
 
@@ -451,7 +453,7 @@ void loop()
 
       // Current
       uint16_t ampOffset;
-  
+
       if (currentSensor <= APM25_A){
         ampOffset = Atto_APM_offset;
       }else if (currentSensor > ACS758_200B){
@@ -459,9 +461,9 @@ void loop()
       }else{
         ampOffset = ACS_B_offset;
       }
-  
-      float mVanalogIn = (analogRead(CURRENT_PIN) / 1023.0) * V_REF; // mV 
-      float cuAmp = (mVanalogIn - ampOffset) / mVperAmp[currentSensor-1]; 
+
+      float mVanalogIn = (analogRead(CURRENT_PIN) / 1023.0) * V_REF; // mV
+      float cuAmp = (mVanalogIn - ampOffset) / mVperAmp[currentSensor-1];
       if (currentSensor > APM25_A){
         cuAmp *= 5000.0/V_REF;
       }
@@ -511,17 +513,17 @@ void loop()
       steinhart /= BCOEFFICIENT;                          // 1/B * ln(R/Ro)
       steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15);   // + (1/To)
       steinhart = 1.0 / steinhart;                        // Invert
-      steinhart -= 273.15 - SELF_HEAT;                    // convert to °C and self-heat compensation 
-      
+      steinhart -= 273.15 - SELF_HEAT;                    // convert to °C and self-heat compensation
+
       #ifdef UNIT_US
         // EU to US conversions
         steinhart = steinhart * 1.8 + 320;
       #endif
-      
+
       jetiEx.SetSensorValue( ID_EXT_TEMP, steinhart*10);
     }
     #endif
-   
+
   }
 
   #ifdef SUPPORT_GPS
@@ -546,7 +548,7 @@ void loop()
         return;
       }
     }
-  
+
 
     if (gps.location.isValid() && gps.location.age() < 2000) { // if Fix
 
@@ -555,15 +557,15 @@ void loop()
 
       // Altitude
       uAbsAltitude = gps.altitude.meters();
-      
+
       #ifdef UNIT_US
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.mph() );
       #else
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.kmph() );
       #endif
-      
+
       jetiEx.SetSensorValue( ID_HEADING, gps.course.deg() );
- 
+
       if (homeSetCount < 3000) {  // set home position
         ++homeSetCount;
         home_lat = gps.location.lat();
@@ -575,14 +577,14 @@ void loop()
         if(pressureSensor.type == unknown){
           startAltitude = gps.altitude.meters();
         }
-        
+
       }else{
-        
+
         // Rel. Altitude
         if(pressureSensor.type == unknown){
           uRelAltitude = (uAbsAltitude - startAltitude)*10;
         }
-      
+
         // Distance to model
         distToHome = gps.distanceBetween(
                                       gps.location.lat(),
@@ -592,7 +594,7 @@ void loop()
         if(gpsSettings.distance3D){
           distToHome = sqrt(pow(uRelAltitude/10,2) + pow(distToHome,2));
         }
-  
+
         // Course from home to model
         jetiEx.SetSensorValue( ID_COURSE, gps.courseTo(home_lat,home_lon,gps.location.lat(),gps.location.lng()));
 
@@ -610,7 +612,7 @@ void loop()
         last_lat = gps.location.lat();
         last_lon = gps.location.lng();
       }
-    
+
     } else { // If Fix end
       jetiEx.SetSensorValueGPS( ID_GPSLAT, false, 0 );
       jetiEx.SetSensorValueGPS( ID_GPSLON, true, 0 );
@@ -623,7 +625,7 @@ void loop()
       jetiEx.SetSensorValue( ID_GPSSPEED, 0 );
       jetiEx.SetSensorValue( ID_HEADING, 0 );
     }
-    
+
     jetiEx.SetSensorValue( ID_SATS, gps.satellites.value() );
     jetiEx.SetSensorValue( ID_HDOP, gps.hdop.value());
     #ifndef UNIT_US
@@ -648,7 +650,7 @@ void loop()
     uRelAltitude /= 0.3048;
     uAbsAltitude /= 0.3048;
   #endif
-  
+
   jetiEx.SetSensorValue( ID_ALTREL, uRelAltitude );
   jetiEx.SetSensorValue( ID_ALTABS, uAbsAltitude );
 
