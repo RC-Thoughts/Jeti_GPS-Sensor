@@ -11,6 +11,7 @@
 
   ******************************************************************
   Versionen:
+
   V2.2.1  26.03.18  Bugfix bei float<->int casting Smoothing Factor (by RS)
   V2.2    15.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden

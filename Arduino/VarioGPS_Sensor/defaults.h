@@ -18,7 +18,7 @@
 #define SUPPORT_RX_VOLTAGE
 #define SUPPORT_EXT_TEMP
 
-// support JetiBox Menu
+// support JetiBox menu
 #define SUPPORT_JETIBOX_MENU
 
 // **************************************
