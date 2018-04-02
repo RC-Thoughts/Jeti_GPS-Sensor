@@ -80,7 +80,7 @@ Der VarioGPS Sensor kann individuell nach seinen eigenen Wünschen zusammengeste
 
 ## Firmware laden
 
-Je nach verwendetem Arduino Board wird die Firmware für 3.3V oder 5V benötigt. Im Ordner Arduino/Firmware sind die entsprechenden hex-files die direkt auf das Arduino Board geladen werden können. Für fortgeschrittene Benutzer steht auch der komplette Code zur Verfügung, der mit der Arduino IDE auf seine eigene Bedürfnisse angepasst werden kann.
+Je nach verwendetem Arduino Board wird die [Firmware](https://github.com/nightflyer88/Jeti_VarioGPS-Sensor/releases) für 3.3V oder 5V benötigt. Im Ordner Arduino/Firmware sind die entsprechenden hex-files die direkt auf das Arduino Board geladen werden können. Für fortgeschrittene Benutzer steht auch der komplette Code zur Verfügung, der mit der Arduino IDE auf seine eigene Bedürfnisse angepasst werden kann.
 
 Für den Firmware upload wird ein USB<>serial Adapter benötigt, und ein entsprechendes Upload-Programm. Danach hat man's schon geschaft, und kann den Sensor im Modell einbauen.
 
@@ -88,16 +88,12 @@ Treten nach einem Firmwareupdate Probleme auf, sollten per JetiBox mit "Load def
 
 ### MAC
 
-Für MAC User gibt es das Programm HexUploader und kann hier heruntergeladen werden: https://github.com/nightflyer88/HexUploader
-
-Der HexUploader ist ein simples Programm zum laden der Firmware, einfach das Arduino Board per USB anschliessen, Arduino Type "Pro mini" und den USB-Serial Port auswählen. Nun das entsprechende hex-file auswählen und der upload startet automatisch.
+Für MAC User gibt es das Programm [HexUploader](https://github.com/nightflyer88/HexUploader/releases), dies ist ein simples Programm zum laden der Firmware. Einfach das Arduino Board per USB anschliessen, Arduino Type "Pro mini" und den USB-Serial Port auswählen. Nun das entsprechende hex-file auswählen und der upload startet automatisch.
 
 ![hexuploader2](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/HexUploader.png)
 
 ### Windows
 
-Für Windows User kann der XLoader verwendet werden: http://russemotto.com/xloader/XLoader.zip
-
-Der Xloader ist ebenfalls ein simples Programm, einfach das hex-file, device und COM-port auswählen und auf "Upload" drücken.
+Für Windows User kann der [XLoader](http://russemotto.com/xloader/XLoader.zip) verwendet werden. Ist ebenfalls ein simples Programm, einfach das hex-file, device und COM-port auswählen und auf "Upload" drücken.
 
 ![xloader](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/xloader.png)
