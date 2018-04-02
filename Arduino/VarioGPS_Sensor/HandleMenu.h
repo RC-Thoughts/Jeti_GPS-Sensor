@@ -88,12 +88,12 @@ const char setMainDriveText[][16] PROGMEM=
   {" AttoPilot 45"},
   {" AttoPilot 90"},
   {" AttoPilot 180"},
-  {" APM2.5 90A/50V"}, 
-  #if V_REF > 4500 
+  {" APM2.5 90A/50V"},
+  #if V_REF > 4500
   {" ACS712-05"},
   {" ACS712-20"},
   {" ACS712-30"},
-  #endif 
+  #endif
   {" ACS758-50B"},
   {" ACS758-100B"},
   {" ACS758-150B"},
@@ -119,14 +119,14 @@ const char enableText[][10] PROGMEM=
 
 
 void HandleMenu()
-{ 
+{
   static int  _nMenu = aboutScreen;
   static bool _bSetDisplay = true;
   static uint32_t LastKey;
   char _bufferLine1[17];
   char _bufferLine2[17];
   uint8_t c = jetiEx.GetJetiboxKey();
-  
+
   enum
   {
     keyRight       = 0xe0,
@@ -139,12 +139,12 @@ void HandleMenu()
 
   if( c == 0 && !_bSetDisplay) return;
 
-  if( millis() < LastKey ) 
-    return; 
-  LastKey = millis() + 200; 
+  if( millis() < LastKey )
+    return;
+  LastKey = millis() + 200;
 
   startHandleMenu:
-  
+
   // Right
   if ( c == keyRight && _nMenu < defaultSettings)
   {
@@ -170,10 +170,10 @@ void HandleMenu()
           gpsSettings.mode--;
         }
         break;
-      #endif 
+      #endif
       case setVarioSmoothingValue:
         if (pressureSensor.smoothingValue < 1.0) {
-          pressureSensor.smoothingValue = (float)((int(pressureSensor.smoothingValue*100))+1)/100;
+          pressureSensor.smoothingValue = (pressureSensor.smoothingValue*100+1)/100;
         }
         break;
       case setDeadzone:
@@ -192,12 +192,12 @@ void HandleMenu()
           capacityMode--;
         }
         break;
-      #endif 
+      #endif
     }
-    
+
     _bSetDisplay = true;
   }
-  
+
   // DN
   if ( c == keyDown )
   {
@@ -219,7 +219,7 @@ void HandleMenu()
       #endif
       case setVarioSmoothingValue:
         if (pressureSensor.smoothingValue > 0.0) {
-          pressureSensor.smoothingValue = (float)((int(pressureSensor.smoothingValue*100))-1)/100;
+          pressureSensor.smoothingValue = (pressureSensor.smoothingValue*100-1)/100;
         }
         break;
       case setDeadzone:
@@ -271,7 +271,7 @@ void HandleMenu()
         #ifdef SUPPORT_EXT_TEMP
         EEPROM.write(8, enableExtTemp);
         #endif
-        
+
         EEPROM.write(10,int(pressureSensor.smoothingValue*100));
         EEPROM.write(12,pressureSensor.deadzone);
         resetFunc();
@@ -283,7 +283,7 @@ void HandleMenu()
         EEPROM.put(EEPROM_ADRESS_CAPACITY+sizeof(float), 0.0f);
         resetFunc();
     }
-  
+
     _bSetDisplay = true;
   }
 
@@ -291,11 +291,11 @@ void HandleMenu()
     return;
 
   // clear buffer
-  _bufferLine1[0] = 0; 
-  _bufferLine2[0] = 0; 
-  
+  _bufferLine1[0] = 0;
+  _bufferLine2[0] = 0;
+
   memcpy_P( _bufferLine1, &menuText[_nMenu], 16 );
-  
+
   switch ( _nMenu )
   {
     case aboutScreen:
@@ -303,8 +303,8 @@ void HandleMenu()
       break;
     #ifdef SUPPORT_GPS
     case setGpsMode:
-      memcpy_P( _bufferLine2, &setGpsModeText[gpsSettings.mode], 16 ); 
-      break;  
+      memcpy_P( _bufferLine2, &setGpsModeText[gpsSettings.mode], 16 );
+      break;
     case setDistanceMode:
       if(gpsSettings.mode == GPS_disabled)goto startHandleMenu;
       memcpy_P( _bufferLine2, &setDistanceModeText[gpsSettings.distance3D], 16 );
@@ -344,9 +344,9 @@ void HandleMenu()
       break;
     #endif
   }
-  
+
   jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _bufferLine1 );
   jetiEx.SetJetiboxText( JetiExProtocol::LINE2, _bufferLine2 );
-  
+
   _bSetDisplay = false;
 }
