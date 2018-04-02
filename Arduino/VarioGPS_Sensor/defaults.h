@@ -6,20 +6,20 @@
 
 // **** General settings ****************
 
-//#define UNIT_US                             //uncomment to enable US units
+//#define UNIT_US                             // uncomment to enable US units
 
 #define V_REF                     3300        // set supply voltage from 1800 to 5500mV
 
-// supported devices
-#define SUPPORT_BMx280                        // comment to disable devices
-#define SUPPORT_MS5611_LPS  
-#define SUPPORT_GPS
-#define SUPPORT_MAIN_DRIVE
-#define SUPPORT_RX_VOLTAGE
-#define SUPPORT_EXT_TEMP
 
-// support JetiBox menu
-#define SUPPORT_JETIBOX_MENU
+// supported devices, comment to disable devices
+#define SUPPORT_BMx280                        // Pressure sensor for altitude
+//#define SUPPORT_MS5611_LPS                    // Pressure sensor for altitude
+#define SUPPORT_MPXV7002                      // Pressure sensor for airspeed
+#define SUPPORT_GPS                           // GPS modul
+#define SUPPORT_MAIN_DRIVE                    // current and voltage sensor
+#define SUPPORT_RX_VOLTAGE                    // Rx voltage sensor
+#define SUPPORT_EXT_TEMP                      // NTC temperature sensor
+#define SUPPORT_JETIBOX_MENU                  // JetiBox menu
 
 // **************************************
 
@@ -49,7 +49,8 @@ enum
   ID_POWER,
   ID_RX1_VOLTAGE,
   ID_RX2_VOLTAGE,
-  ID_EXT_TEMP
+  ID_EXT_TEMP,
+  ID_AIRSPEED
 };
 
 /*
@@ -88,6 +89,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_RX1_VOLTAGE, "Rx1 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_RX2_VOLTAGE, "Rx2 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_EXT_TEMP,    "Ext. Temp",  "\xB0\x43",   JetiSensor::TYPE_14b, 1 },
+  { ID_AIRSPEED,    "Airspeed",   "km/h",       JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 #endif
@@ -120,6 +122,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_RX1_VOLTAGE, "Rx1 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_RX2_VOLTAGE, "Rx2 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_EXT_TEMP,    "Ext. Temp",  "\xB0\x46",   JetiSensor::TYPE_14b, 1 },
+  { ID_AIRSPEED,    "Airspeed",   "mph",        JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 #endif
@@ -151,6 +154,15 @@ enum {
 // LPS (LPS311)
 #define LPS_SMOOTHING 0.80
 #define LPS_DEADZONE 0
+
+
+
+// **** Air speed settings ****
+
+#define AIRSPEED_PIN        A7
+#define AIRSPEED_SMOOTHING  0.80
+
+
 
 
 // **** GPS settings ****
@@ -228,7 +240,7 @@ enum {
 #define CAPACITY_SAVE_INTERVAL        10000         // ms
 #define MAX_CUR_TO_SAVE_CAPACITY      2             // A
 
-// voltage difference to reset
+// voltage difference to reset capacity in automatic mode
 #define VOLTAGE_DIFFERENCE            2             // %  
 
 // suported current sensors 

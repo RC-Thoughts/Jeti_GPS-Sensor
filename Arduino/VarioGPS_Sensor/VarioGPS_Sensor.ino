@@ -6,12 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
 
 */
-#define VARIOGPS_VERSION "Version V2.2.1"
+#define VARIOGPS_VERSION "Version V2.3b"
 /*
 
   ******************************************************************
   Versionen:
-
+  V2.3    beta      Test mit MPXV7002 für Airspeed 
   V2.2.1  26.03.18  Bugfix bei float<->int casting Smoothing Factor (by RS)
   V2.2    15.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden
@@ -116,6 +116,11 @@ JetiExProtocol jetiEx;
   #include <LPS.h>
   MS5611 ms5611;
   LPS lps;
+#endif
+
+#ifdef SUPPORT_MPXV7002
+  #include "SpeedPressure.h"
+  Pressure airSpeed(AIRSPEED_PIN);
 #endif
 
 #if V_REF < 1800 || V_REF > 5500
@@ -224,7 +229,11 @@ void setup()
   }
   #endif
 
-  // read settings from eeprom
+  #ifdef SUPPORT_MPXV7002
+    airSpeed.Init();
+  #endif
+ 
+  // read settings from eeprom 
   #ifdef SUPPORT_GPS
   if (EEPROM.read(1) != 0xFF) {
     gpsSettings.mode = EEPROM.read(1);
@@ -354,6 +363,19 @@ void loop()
 
   if((millis() - lastTime) > MEASURING_INTERVAL){
 
+    #ifdef SUPPORT_MPXV7002
+    static int uAirSpeed = 0;
+    static int lastAirSpeed = 0;
+    
+    uAirSpeed = airSpeed.GetAirSpeed();
+    
+    // IIR Low Pass Filter
+    uAirSpeed = uAirSpeed + AIRSPEED_SMOOTHING * (lastAirSpeed - uAirSpeed);
+    lastAirSpeed = uAirSpeed;
+    
+    jetiEx.SetSensorValue( ID_AIRSPEED, uAirSpeed );
+    #endif
+
     #ifdef SUPPORT_BMx280 || SUPPORT_MS5611_LPS
     if(pressureSensor.type != unknown){
       static bool setStartAltitude = false;
@@ -402,9 +424,20 @@ void loop()
         uAbsAltitude = curAltitude / 100;
       }
 
-      uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
+      // Vario calculation
+      long dH = curAltitude - lastAltitude;             // delta height in Centimeter
+      float dT = 1000 / float(millis() - lastTime);     // delta time in s
+      //uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
+      uVario = dH * dT;
       lastAltitude = curAltitude;
 
+      //TEK compensation  
+      // see: http://www.how2soar.de/images/H2S_media/02_pdf/TE-Vario_im_Stroemungsfeld.pdf  
+      #ifdef SUPPORT_MPXV7002
+      float dV = (uAirSpeed - lastAirSpeed) / 3.6;     // delta speed in m/s
+      uVario += -1/9.81*(uAirSpeed/3.6)*dV/dT;
+      #endif
+    
       // Vario Filter
       // IIR Low Pass Filter
       // y[i] := α * x[i] + (1-α) * y[i-1]
@@ -414,10 +447,10 @@ void loop()
       //      := x[i] - β * x[i] + β * y[i-1]
       //      := x[i] + β (y[i-1] - x[i])
       // see: https://en.wikipedia.org/wiki/Low-pass_filter#Simple_infinite_impulse_response_filter
-
       uVario = uVario + pressureSensor.smoothingValue * (lastVariofilter - uVario);
       lastVariofilter = uVario;
-      // Dead zone filter
+      
+      // Vario dead zone filter
       if (uVario > pressureSensor.deadzone) {
         uVario -= pressureSensor.deadzone;
       } else if (uVario < (pressureSensor.deadzone * -1)) {
