@@ -362,6 +362,19 @@ void loop()
 
   if((millis() - lastTime) > MEASURING_INTERVAL){
 
+    #ifdef SUPPORT_MPXV7002
+    static int uAirSpeed = 0;
+    static int lastAirSpeed = 0;
+    
+    uAirSpeed = airSpeed.GetAirSpeed();
+    
+    // IIR Low Pass Filter
+    uAirSpeed = uAirSpeed + AIRSPEED_SMOOTHING * (lastAirSpeed - uAirSpeed);
+    lastAirSpeed = uAirSpeed;
+    
+    jetiEx.SetSensorValue( ID_AIRSPEED, uAirSpeed );
+    #endif
+
     #ifdef SUPPORT_BMx280 || SUPPORT_MS5611_LPS
     if(pressureSensor.type != unknown){
       static bool setStartAltitude = false;
@@ -409,9 +422,20 @@ void loop()
         uRelAltitude = (curAltitude - startAltitude) / 10;
         uAbsAltitude = curAltitude / 100;
       }
-       
-      uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
+
+      // Vario calculation
+      long dH = curAltitude - lastAltitude;             // delta height in Centimeter
+      float dT = 1000 / float(millis() - lastTime);     // delta time in s
+      //uVario = (curAltitude - lastAltitude) * (1000 / float(millis() - lastTime));
+      uVario = dH * dT;
       lastAltitude = curAltitude;
+
+      //TEK compensation  
+      // see: http://www.how2soar.de/images/H2S_media/02_pdf/TE-Vario_im_Stroemungsfeld.pdf  
+      #ifdef SUPPORT_MPXV7002
+      float dV = (uAirSpeed - lastAirSpeed) / 3.6;     // delta speed in m/s
+      uVario += -1/9.81*(uAirSpeed/3.6)*dV/dT;
+      #endif
     
       // Vario Filter
       // IIR Low Pass Filter
@@ -425,7 +449,7 @@ void loop()
       uVario = uVario + pressureSensor.smoothingValue * (lastVariofilter - uVario);
       lastVariofilter = uVario;
       
-      // Dead zone filter
+      // Vario dead zone filter
       if (uVario > pressureSensor.deadzone) {
         uVario -= pressureSensor.deadzone;
       } else if (uVario < (pressureSensor.deadzone * -1)) {
@@ -451,19 +475,6 @@ void loop()
     #endif
 
     lastTime = millis();
-
-    #ifdef SUPPORT_MPXV7002
-      static int uAirSpeed = 0;
-      static int lastAirSpeed = 0;
-      
-      uAirSpeed = airSpeed.GetAirSpeed();
-      
-      // IIR Low Pass Filter
-      uAirSpeed = uAirSpeed + AIRSPEED_SMOOTHING * (lastAirSpeed - uAirSpeed);
-      lastAirSpeed = uAirSpeed;
-      
-      jetiEx.SetSensorValue( ID_AIRSPEED, uAirSpeed );
-    #endif
 
     // analog input
     #ifdef SUPPORT_MAIN_DRIVE

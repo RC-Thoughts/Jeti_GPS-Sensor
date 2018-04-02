@@ -240,7 +240,7 @@ enum {
 #define CAPACITY_SAVE_INTERVAL        10000         // ms
 #define MAX_CUR_TO_SAVE_CAPACITY      2             // A
 
-// voltage difference to reset
+// voltage difference to reset capacity in automatic mode
 #define VOLTAGE_DIFFERENCE            2             // %  
 
 // suported current sensors 
