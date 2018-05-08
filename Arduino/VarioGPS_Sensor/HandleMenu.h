@@ -16,6 +16,12 @@ enum screenViews {
   detectedPressureSensor,
   setVarioSmoothingValue,
   setDeadzone,
+  #ifdef SUPPORT_MPXV7002_MPXV5004
+  setAirSpeedSensor,
+  #endif
+  #ifdef SUPPORT_TEC
+  setTECmode,
+  #endif
   #ifdef SUPPORT_MAIN_DRIVE
   setMainDrive,
   setCapacityMode,
@@ -43,6 +49,12 @@ const char menuText[][17] PROGMEM=
   {"Pressure sensor:"},
   {"Vario smoothing:"},
   {"Vario deadzone:"},
+  #ifdef SUPPORT_MPXV7002_MPXV5004
+  {"Air speed:"},
+  #endif
+  #ifdef SUPPORT_TEC
+  {"TEC mode:"},
+  #endif
   #ifdef SUPPORT_MAIN_DRIVE
   {"Main drive:"},
   {"Capacity reset:"},
@@ -82,6 +94,19 @@ const char detectedPressureSensorText[][9] PROGMEM=
   {" LPS"}
 };
 
+/*const char setAirSpeedSensorText[][10] PROGMEM=
+{
+  {" Disabled"},
+  {" MPXV7002"}
+};*/
+
+const char setTECmodeText[][11] PROGMEM=
+{
+  {" Disabled"},
+  {" Air speed"},
+  {" GPS"}
+};
+
 const char setMainDriveText[][16] PROGMEM=
 {
   {" Disabled"},
@@ -117,6 +142,11 @@ const char enableText[][10] PROGMEM=
   {" Enabled"}
 };
 
+// reset capacity and voltage value in eeprom
+void resetCapacity(){
+  EEPROM.put(P_CAPACITY_VALUE, 0.0f);                 
+  EEPROM.put(P_VOLTAGE_VALUE, 0.0f);
+}
 
 void HandleMenu()
 {
@@ -181,6 +211,22 @@ void HandleMenu()
           pressureSensor.deadzone++;
         }
         break;
+      #ifdef SUPPORT_MPXV7002_MPXV5004
+      case setAirSpeedSensor:
+        if(airSpeedSensor > airSpeed_disabled){
+          airSpeedSensor--;
+        }
+        break;
+      #endif
+      #ifdef SUPPORT_TEC
+      case setTECmode:
+        if(TECmode > TEC_disabled){
+          TECmode--;
+        }
+        //if(TECmode == TEC_airSpeed && airSpeedSensor == airSpeed_disabled)goto startHandleMenu;
+        //if(TECmode == TEC_GPS && gpsSettings.mode == GPS_disabled)TECmode = TEC_disabled;
+        break;
+      #endif
       #ifdef SUPPORT_MAIN_DRIVE
       case setMainDrive:
         if (currentSensor > mainDrive_disabled) {
@@ -204,9 +250,14 @@ void HandleMenu()
     switch ( _nMenu )
     {
       case resetOffset:
-        EEPROM.put(EEPROM_ADRESS_CAPACITY, 0.0f);                 // reset capacity in eeprom
-        EEPROM.put(EEPROM_ADRESS_CAPACITY+sizeof(float), 0.0f);
-        resetFunc();
+        // reset capacity in eeprom
+        resetCapacity();
+        // calibrate currentoffset
+        if(currentSensor){
+          ampOffsetCalibration += cuAmp*mVperAmp[currentSensor-1];
+          EEPROM.write(P_CURRENT_CALIBRATION,ampOffsetCalibration+127);
+        }
+        resetCPU();
       #ifdef SUPPORT_GPS
       case setGpsMode:
         if(gpsSettings.mode < GPS_extended){
@@ -227,6 +278,22 @@ void HandleMenu()
           pressureSensor.deadzone--;
         }
         break;
+      #ifdef SUPPORT_MPXV7002_MPXV5004
+      case setAirSpeedSensor:
+        if(airSpeedSensor < MPXV7002_MPXV5004){
+          airSpeedSensor++;
+        }
+        break;
+      #endif
+      #ifdef SUPPORT_TEC
+      case setTECmode:
+        if(TECmode < TEC_GPS){
+          TECmode++;
+        }
+        //if(TECmode == TEC_airSpeed && airSpeedSensor == airSpeed_disabled)goto startHandleMenu;
+        //if(TECmode == TEC_GPS && gpsSettings.mode == GPS_disabled)TECmode = TEC_disabled;
+        break;
+      #endif
       #ifdef SUPPORT_MAIN_DRIVE
       case setMainDrive:
         if (currentSensor < ACS758_200U) {
@@ -254,34 +321,42 @@ void HandleMenu()
       #endif
       case saveSettings:
         #ifdef SUPPORT_GPS
-        EEPROM.write(1, gpsSettings.mode);
-        EEPROM.write(2, gpsSettings.distance3D);
+        EEPROM.write(P_GPS_MODE, gpsSettings.mode);
+        EEPROM.write(P_GPS_3D, gpsSettings.distance3D);
         #endif
 
         #ifdef SUPPORT_MAIN_DRIVE
-        EEPROM.write(3, currentSensor);
-        EEPROM.write(5, capacityMode);
+        EEPROM.write(P_CURRENT_SENSOR, currentSensor);
+        EEPROM.write(P_CAPACITY_MODE, capacityMode);
         #endif
 
         #ifdef SUPPORT_RX_VOLTAGE
-        EEPROM.write(6, enableRx1);
-        EEPROM.write(7, enableRx2);
+        EEPROM.write(P_ENABLE_RX1, enableRx1);
+        EEPROM.write(P_ENABLE_RX2, enableRx2);
         #endif
 
         #ifdef SUPPORT_EXT_TEMP
-        EEPROM.write(8, enableExtTemp);
+        EEPROM.write(P_ENABLE_TEMP, enableExtTemp);
         #endif
 
-        EEPROM.write(10,int(pressureSensor.smoothingValue*100));
-        EEPROM.write(12,pressureSensor.deadzone);
-        resetFunc();
+        EEPROM.write(P_VARIO_SMOOTHING,int(pressureSensor.smoothingValue*100));
+        EEPROM.write(P_VARIO_DEADZONE,pressureSensor.deadzone);
+
+        #ifdef SUPPORT_MPXV7002_MPXV5004
+        EEPROM.write(P_AIRSPEED_SENSOR,airSpeedSensor);
+        #endif
+        
+        #ifdef SUPPORT_TEC
+        EEPROM.write(P_TEC_MODE,TECmode);
+        #endif
+    
+        resetCPU();
       case defaultSettings:
         for(int i=0; i < 50; i++){
           EEPROM.write(i, 0xFF);
         }
-        EEPROM.put(EEPROM_ADRESS_CAPACITY, 0.0f);
-        EEPROM.put(EEPROM_ADRESS_CAPACITY+sizeof(float), 0.0f);
-        resetFunc();
+        resetCapacity();
+        resetCPU();
     }
 
     _bSetDisplay = true;
@@ -321,6 +396,22 @@ void HandleMenu()
       if(pressureSensor.type == unknown)goto startHandleMenu;
       sprintf( _bufferLine2, " %2dcm",pressureSensor.deadzone);
       break;
+    #ifdef SUPPORT_MPXV7002_MPXV5004
+    case setAirSpeedSensor:
+      memcpy_P( _bufferLine2, &enableText[airSpeedSensor], 16 );
+      break;
+    #endif
+    #ifdef SUPPORT_TEC
+    case setTECmode:
+      //if(airSpeedSensor == airSpeed_disabled && gpsSettings.mode == GPS_disabled)goto startHandleMenu;
+      /*if(TECmode == TEC_airSpeed && airSpeedSensor == airSpeed_disabled)TECmode++;
+      if(TECmode == TEC_GPS && gpsSettings.mode == GPS_disabled)TECmode++;
+      if(TECmode > TEC_GPS){
+        TECmode = TEC_disabled;
+      }*/
+      memcpy_P( _bufferLine2, &setTECmodeText[TECmode], 16 );
+      break;
+    #endif
     #ifdef SUPPORT_MAIN_DRIVE
     case setMainDrive:
       memcpy_P( _bufferLine2, &setMainDriveText[currentSensor], 16 );
@@ -345,8 +436,11 @@ void HandleMenu()
     #endif
   }
 
-  jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _bufferLine1 );
-  jetiEx.SetJetiboxText( JetiExProtocol::LINE2, _bufferLine2 );
+  jetiEx.SetJetiboxText( 0, _bufferLine1 );
+  jetiEx.SetJetiboxText( 1, _bufferLine2 );
 
   _bSetDisplay = false;
 }
+
+
+

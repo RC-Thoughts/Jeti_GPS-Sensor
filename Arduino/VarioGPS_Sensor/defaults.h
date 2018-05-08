@@ -1,29 +1,30 @@
 /*
   -----------------------------------------------------------
-            Settings & defaults
+            Defaults
   -----------------------------------------------------------
+  It is recommended not to change these default values and parameters.
 */
 
-// **** General settings ****************
+#define MEASURING_INTERVAL        180         //ms
 
-//#define UNIT_US                             // uncomment to enable US units
-
-#define V_REF                     3300        // set supply voltage from 1800 to 5500mV
-
-
-// supported devices, comment to disable devices
-#define SUPPORT_BMx280                        // Pressure sensor for altitude
-//#define SUPPORT_MS5611_LPS                    // Pressure sensor for altitude
-#define SUPPORT_MPXV7002                      // Pressure sensor for airspeed
-#define SUPPORT_GPS                           // GPS modul
-#define SUPPORT_MAIN_DRIVE                    // current and voltage sensor
-#define SUPPORT_RX_VOLTAGE                    // Rx voltage sensor
-#define SUPPORT_EXT_TEMP                      // NTC temperature sensor
-#define SUPPORT_JETIBOX_MENU                  // JetiBox menu
-
-// **************************************
-
-
+// EEprom parameter addresses
+enum
+{
+  P_GPS_MODE =              1,
+  P_GPS_3D =                2,
+  P_CURRENT_SENSOR =        3,
+  P_CURRENT_CALIBRATION =   4,
+  P_CAPACITY_MODE =         5,
+  P_ENABLE_RX1 =            6,
+  P_ENABLE_RX2 =            7,
+  P_ENABLE_TEMP =           8,
+  P_VARIO_SMOOTHING =      10,
+  P_VARIO_DEADZONE =       12,
+  P_AIRSPEED_SENSOR =      13,
+  P_TEC_MODE =             14,
+  P_CAPACITY_VALUE =       20,
+  P_VOLTAGE_VALUE =        P_CAPACITY_VALUE+sizeof(float)
+};
 
 // Sensor IDs
 enum
@@ -131,7 +132,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
 
 // **** Vario settings ****
 
-// Pressure Sensors
+// Pressure sensors
 enum {
   unknown,
   BMP280,
@@ -155,13 +156,30 @@ enum {
 #define LPS_SMOOTHING 0.80
 #define LPS_DEADZONE 0
 
+// TEC mode
+enum {
+  TEC_disabled,
+  TEC_airSpeed,
+  TEC_GPS
+};
+
+#define PRESSURE_SEALEVEL         101325   // Pa
+
 
 
 // **** Air speed settings ****
 
-#define AIRSPEED_PIN        A7
-#define AIRSPEED_SMOOTHING  0.80
+#define AIRSPEED_PIN              A7
+#define AIRSPEED_SMOOTHING        0.80
 
+#define UNIVERSAL_GAS_CONSTANT    8.3144621f
+#define DRY_AIR_MOLAR_MASS        0.0289644f
+
+// Air speed sensors
+enum {
+  airSpeed_disabled,
+  MPXV7002_MPXV5004
+};
 
 
 
@@ -348,5 +366,8 @@ const uint8_t mVperAmp[] =  {
 #define DEFAULT_ENABLE_Rx2        false
 
 #define DEFAULT_ENABLE_EXT_TEMP   false
+
+#define DEFAULT_AIRSPEED_SENSOR   airSpeed_disabled
+#define DEFAULT_TEC_MODE          TEC_disabled
 
 
