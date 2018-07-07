@@ -11,8 +11,9 @@
 
 
 // **** supported devices, comment to disable ****
+// Turn on the compiler warnings in the arduino settings to indicate compatibility issues
 
-#define SUPPORT_EX_BUS                        // enable bidirectional EX Bus with 125kbaud, otherwise the old EX protocol with 9.6kbaud is enabled
+//#define SUPPORT_EX_BUS                        // enable bidirectional EX Bus with 125kbaud, otherwise the old EX protocol with 9.6kbaud is enabled
 
 #define SUPPORT_BMx280                        // BMP280 and BME280 pressure sensors for altitude
 #define SUPPORT_MS5611                        // MS5611 pressure sensor for altitude

@@ -104,7 +104,9 @@ const char setTECmodeText[][11] PROGMEM=
 {
   {" Disabled"},
   {" Air speed"},
+  #ifdef SUPPORT_GPS
   {" GPS"}
+  #endif
 };
 
 const char setMainDriveText[][16] PROGMEM=
@@ -223,8 +225,6 @@ void HandleMenu()
         if(TECmode > TEC_disabled){
           TECmode--;
         }
-        //if(TECmode == TEC_airSpeed && airSpeedSensor == airSpeed_disabled)goto startHandleMenu;
-        //if(TECmode == TEC_GPS && gpsSettings.mode == GPS_disabled)TECmode = TEC_disabled;
         break;
       #endif
       #ifdef SUPPORT_MAIN_DRIVE
@@ -290,8 +290,6 @@ void HandleMenu()
         if(TECmode < TEC_GPS){
           TECmode++;
         }
-        //if(TECmode == TEC_airSpeed && airSpeedSensor == airSpeed_disabled)goto startHandleMenu;
-        //if(TECmode == TEC_GPS && gpsSettings.mode == GPS_disabled)TECmode = TEC_disabled;
         break;
       #endif
       #ifdef SUPPORT_MAIN_DRIVE
@@ -403,12 +401,6 @@ void HandleMenu()
     #endif
     #ifdef SUPPORT_TEC
     case setTECmode:
-      //if(airSpeedSensor == airSpeed_disabled && gpsSettings.mode == GPS_disabled)goto startHandleMenu;
-      /*if(TECmode == TEC_airSpeed && airSpeedSensor == airSpeed_disabled)TECmode++;
-      if(TECmode == TEC_GPS && gpsSettings.mode == GPS_disabled)TECmode++;
-      if(TECmode > TEC_GPS){
-        TECmode = TEC_disabled;
-      }*/
       memcpy_P( _bufferLine2, &setTECmodeText[TECmode], 16 );
       break;
     #endif
@@ -436,8 +428,13 @@ void HandleMenu()
     #endif
   }
 
+  #ifdef SUPPORT_EX_BUS
   jetiEx.SetJetiboxText( 0, _bufferLine1 );
   jetiEx.SetJetiboxText( 1, _bufferLine2 );
+  #else
+  jetiEx.SetJetiboxText( JetiExProtocol::LINE1, _bufferLine1 );
+  jetiEx.SetJetiboxText( JetiExProtocol::LINE2, _bufferLine2 );
+  #endif
 
   _bSetDisplay = false;
 }

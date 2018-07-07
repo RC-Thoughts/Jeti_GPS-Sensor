@@ -141,6 +141,9 @@ enum {
   LPS_
 };
 
+#define PRESSURE_SEALEVEL         101325   // Pa
+
+
 // Vario lowpass filter and
 // dead zone filter in centimeter (Even if you use US-units!)
 
@@ -163,15 +166,17 @@ enum {
   TEC_GPS
 };
 
-#define PRESSURE_SEALEVEL         101325   // Pa
-
 
 
 // **** Air speed settings ****
 
+// analog input pin
 #define AIRSPEED_PIN              A7
-#define AIRSPEED_SMOOTHING        0.80
 
+// smoothing factor
+#define AIRSPEED_SMOOTHING        0.50
+
+// Atmosphere constants
 #define UNIVERSAL_GAS_CONSTANT    8.3144621f
 #define DRY_AIR_MOLAR_MASS        0.0289644f
 

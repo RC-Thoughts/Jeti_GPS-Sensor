@@ -11,11 +11,12 @@
 
   ******************************************************************
   Versionen:
-  V2.3    beta      Test mit MPXV7002/MPXV5004 für Air-Speed 
+  V2.3    beta      MPXV7002/MPXV5004 für Air-Speed wird unterstützt 
                     TEK (Total Energie Kompensation) mit Air-Speed oder GPS-Speed (basierend auf Code von Rainer Stransky)
                     EX-Bus mit 125kbaud, Lib (v0.95) von Bernd Wokoeck
                     Stromsensor per JetiBox kalibrierbar (reset offset) 
-                    separate Datei für Einstellungen (settings.h), kleinere Optimierungen und Anpassungen             
+                    separate Datei für Einstellungen (settings.h), Compillerwahrnung bei inkompatibilität der Softwareoptionen
+                    STATIC Variablen entfehrnt, konnte in einigen Fällen zu RAM-Problemen führen           
   V2.2.1  26.03.18  Bugfix bei float<->int casting Smoothing Factor (by RS)
   V2.2    15.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden
@@ -98,13 +99,42 @@
 
 #include "settings.h"
 
+// Check supply voltage
+#if V_REF < 1800 || V_REF > 5500
+  #error unsupported supply voltage
+#endif
+
+// Check airspeed-sensor supply voltage
+#if defined(SUPPORT_MPXV7002_MPXV5004) && V_REF < 4750 
+  #undef SUPPORT_MPXV7002_MPXV5004
+  #warning Supply voltage is lower than 4750mV, Airspeed sensor (MPXV7002 / MPXV5004) is disabled
+#endif
+
+// Check the compatibility of EX-Bus and GPS sensor
+#if defined(SUPPORT_EX_BUS) && defined(SUPPORT_GPS)
+  #undef SUPPORT_GPS
+  #warning GPS sensor is not compatible with EX-Bus protocol, GPS sensor is disabled
+#endif
+
+// Check speed sensor is available for TEC
+#if defined(SUPPORT_TEC) && !defined(SUPPORT_MPXV7002_MPXV5004) && !defined(SUPPORT_GPS)
+  #undef SUPPORT_TEC
+  #warning no speed sensor available, TEC is disabled
+#endif
+
+// Check pressure sensor is available for TEC
+#if defined(SUPPORT_TEC) && !defined(SUPPORT_BMx280) && !defined(SUPPORT_MS5611) && !defined(SUPPORT_LPS)
+  #undef SUPPORT_TEC
+  #warning no pressure sensor available, TEC is disabled
+#endif
+
 #ifdef SUPPORT_EX_BUS
-#include "JetiExBusProtocol.h"
-JetiExBusProtocol jetiEx;
+  #include "JetiExBusProtocol.h"
+  JetiExBusProtocol jetiEx;
 #else
-#include <JetiExSerial.h>
-#include <JetiExProtocol.h>
-JetiExProtocol jetiEx;
+  #include <JetiExSerial.h>
+  #include <JetiExProtocol.h>
+  JetiExProtocol jetiEx;
 #endif
 
 #include <EEPROM.h>
@@ -133,16 +163,6 @@ JetiExProtocol jetiEx;
   LPS lps;
 #endif
 
-#if V_REF < 1800 || V_REF > 5500
-  #error unsupported supply voltage
-#endif
-
-/*#ifdef SUPPORT_MPXV7002_MPXV5004
-#if V_REF < 4750 
-  #undef SUPPORT_MPXV7002_MPXV5004
-#endif
-#endif*/
-
 struct {
   uint8_t mode = DEFAULT_GPS_MODE;
   bool distance3D = DEFAULT_GPS_3D_DISTANCE;
@@ -151,13 +171,10 @@ struct {
 struct {
   uint8_t type = unknown;
   float smoothingValue;
-  long deadzone;
+  uint8_t deadzone;
 } pressureSensor;
 
-unsigned long lastTime = 0;
-unsigned long lastTimeCapacity = 0;
-float cuAmp;
-int ampOffsetCalibration = 0;
+// set defaults
 uint8_t currentSensor = DEFAULT_CURRENT_SENSOR;
 uint8_t capacityMode = DEFAULT_CAPACITY_MODE;
 bool enableRx1 = DEFAULT_ENABLE_Rx1;
@@ -165,8 +182,14 @@ bool enableRx2 = DEFAULT_ENABLE_Rx2;
 bool enableExtTemp = DEFAULT_ENABLE_EXT_TEMP;
 uint8_t TECmode = DEFAULT_TEC_MODE;
 uint8_t airSpeedSensor = DEFAULT_AIRSPEED_SENSOR;
-int refAirspeedPressure;
 
+// Main drive variables
+unsigned long lastTime = 0;
+unsigned long lastTimeCapacity = 0;
+float cuAmp;
+int ampOffsetCalibration = 0;
+float capacityConsumption = 0;
+const float timefactorCapacityConsumption = (1000.0/MEASURING_INTERVAL*60*60)/1000;
 const float factorVoltageDivider[] = { float(voltageInputR1[0]+voltageInputR2[0])/voltageInputR2[0],
                                        float(voltageInputR1[1]+voltageInputR2[1])/voltageInputR2[1],
                                        float(voltageInputR1[2]+voltageInputR2[2])/voltageInputR2[2],
@@ -176,8 +199,37 @@ const float factorVoltageDivider[] = { float(voltageInputR1[0]+voltageInputR2[0]
                                        float(voltageInputR1[6]+voltageInputR2[6])/voltageInputR2[6],
                                        float(voltageInputR1[7]+voltageInputR2[7])/voltageInputR2[7]  };
 
-const float timefactorCapacityConsumption = (1000.0/MEASURING_INTERVAL*60*60)/1000;
-float capacityConsumption = 0;
+// pressure sensor variables
+long startAltitude = 0;
+//bool setStartAltitude = false;
+long uRelAltitude = 0;
+long uAbsAltitude = 0;
+long uPressure = PRESSURE_SEALEVEL;
+int uTemperature = 20;
+float lastVariofilter = 0;
+long lastAltitude = 0;
+
+// airspeed variables
+int refAirspeedPressure;
+int uAirSpeed = 0;
+int lastAirSpeed = 0;
+
+// TEC variables
+unsigned long dT = 0;
+float dV;
+float uSpeedMS;
+long  lastTimeSpeed = 0;
+float lastGPSspeedMS = 0;
+
+// GPS variables
+int homeSetCount = 0;
+float home_lat;
+float home_lon;
+float last_lat;
+float last_lon;
+long lastAbsAltitude = 0;
+unsigned long tripDist;
+
 
 // Restart CPU
 void(* resetCPU) (void) = 0;
@@ -200,18 +252,19 @@ uint8_t getVoltageSensorTyp(){
   }else if(currentSensor >= ACS758_50B){
     return ACS758_voltage;
   }
+  return 0;
 }
 
 void setup()
 {
-  // identify sensor
+  // identify pressure sensor
   #ifdef SUPPORT_BMx280
     pressureSensor.type = boschPressureSensor.begin(0x76);
     if(pressureSensor.type == unknown){
       pressureSensor.type = boschPressureSensor.begin(0x77);
     }
   #endif
-  #ifdef SUPPORT_MS5611 || SUPPORT_LPS
+  #if defined(SUPPORT_MS5611) || defined(SUPPORT_LPS)
     if(pressureSensor.type == unknown){
       #ifdef SUPPORT_LPS
       if (lps.init()) {
@@ -231,7 +284,7 @@ void setup()
     }
   #endif
 
-  #ifdef SUPPORT_BMx280 || SUPPORT_MS5611 || SUPPORT_LPS
+  #if defined(SUPPORT_BMx280) || defined(SUPPORT_MS5611) || defined(SUPPORT_LPS)
   switch (pressureSensor.type){
     case BMP280:
       pressureSensor.smoothingValue = BMx280_SMOOTHING;
@@ -316,13 +369,13 @@ void setup()
   #ifdef SUPPORT_MPXV7002_MPXV5004
   // init airspeed sensor
   if(airSpeedSensor){
-    delay(50);
+    //delay(50);
     refAirspeedPressure = analogRead(AIRSPEED_PIN);
   }
   #endif
 
 
-  // Setup sensors
+  // Setup telemetry sensors
   if(pressureSensor.type == unknown){
     jetiEx.SetSensorActive( ID_VARIO, false, sensors );
   }
@@ -353,6 +406,10 @@ void setup()
     jetiEx.SetSensorActive( ID_COURSE, false, sensors );
     jetiEx.SetSensorActive( ID_SATS, false, sensors );
     jetiEx.SetSensorActive( ID_HDOP, false, sensors );
+  }
+
+  if(!airSpeedSensor){
+    jetiEx.SetSensorActive( ID_AIRSPEED, false, sensors );
   }
 
   if(currentSensor == mainDrive_disabled){
@@ -403,17 +460,6 @@ void setup()
 
 void loop()
 {
-  static long startAltitude = 0;
-  static long uRelAltitude = 0;
-  static long uAbsAltitude = 0;
-  long uPressure = PRESSURE_SEALEVEL;
-  int uTemperature = 20;
-  #ifdef SUPPORT_TEC
-  static unsigned long dT = 0;
-  static float dV;
-  static float uSpeedMS;
-  #endif
-
   #ifdef SUPPORT_EX_BUS
   //if(jetiEx.IsBusReleased()){
   #endif
@@ -422,9 +468,6 @@ void loop()
 
     #ifdef SUPPORT_MPXV7002_MPXV5004
     if(airSpeedSensor){
-      static int uAirSpeed = 0;
-      static int lastAirSpeed = 0;
-
       // get air speed from MPXV7002/MPXV5004
       // based on code from johnlenfr, http://johnlenfr.1s.fr
       int airSpeedPressure = analogRead(AIRSPEED_PIN);
@@ -454,14 +497,10 @@ void loop()
     }
     #endif
 
-    #ifdef SUPPORT_BMx280 || SUPPORT_MS5611 || SUPPORT_LPS
+    #if defined(SUPPORT_BMx280) || defined(SUPPORT_MS5611) || defined(SUPPORT_LPS)
     if(pressureSensor.type != unknown){
-      static bool setStartAltitude = false;
-      static float lastVariofilter = 0;
-      static long lastAltitude = 0;
       long curAltitude;
       long uVario;
-      int uHumidity;
 
       // Read sensormodule values
       switch (pressureSensor.type){
@@ -491,9 +530,10 @@ void loop()
         #endif
       }
 
-      if (!setStartAltitude) {
+      //if (!setStartAltitude) {
+      if (startAltitude == 0) {
         // Set start-altitude in sensor-start
-        setStartAltitude = true;
+        //setStartAltitude = true;
         startAltitude = curAltitude;
         lastAltitude = curAltitude;
       }else{
@@ -648,14 +688,6 @@ void loop()
 
   #ifdef SUPPORT_GPS
   if(gpsSettings.mode != GPS_disabled){
-
-    static int homeSetCount = 0;
-    static float home_lat;
-    static float home_lon;
-    static float last_lat;
-    static float last_lon;
-    static long lastAbsAltitude = 0;
-    static unsigned long tripDist;
     unsigned long distToHome;
 
     // read data from GPS
@@ -679,14 +711,13 @@ void loop()
       uAbsAltitude = gps.altitude.meters();
 
       #ifdef SUPPORT_TEC
-      static long uTimeSpeed, lastTimeSpeed = 0;
-      static float lastGPSspeedMS = 0;
       if(TECmode == TEC_GPS){
         if (gps.speed.isUpdated()) {
           uSpeedMS = gps.speed.kmph() / 3.6;
           dV = uSpeedMS - lastGPSspeedMS;     // delta speed in m/s
           lastGPSspeedMS = uSpeedMS;
-          uTimeSpeed = millis();
+          //uTimeSpeed = millis();
+          long uTimeSpeed = millis();
           dT = uTimeSpeed - lastTimeSpeed; // dT in ms
           lastTimeSpeed = uTimeSpeed;
         }
