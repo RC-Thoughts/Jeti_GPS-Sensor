@@ -81,8 +81,8 @@ const char setGpsModeText[][10] PROGMEM=
 
 const char setDistanceModeText[][4] PROGMEM=
 {
-  {" 3D"},
-  {" 2D"}
+  {" 2D"},
+  {" 3D"}
 };
 
 const char detectedPressureSensorText[][9] PROGMEM=
@@ -104,9 +104,7 @@ const char setTECmodeText[][11] PROGMEM=
 {
   {" Disabled"},
   {" Air speed"},
-  #ifdef SUPPORT_GPS
   {" GPS"}
-  #endif
 };
 
 const char setMainDriveText[][16] PROGMEM=

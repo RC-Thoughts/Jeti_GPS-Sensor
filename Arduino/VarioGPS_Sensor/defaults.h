@@ -37,7 +37,7 @@ enum
   ID_VARIO,
   ID_DIST,
   ID_TRIP,
-  ID_HEADING,
+  ID_AZIMUTH,
   ID_COURSE,
   ID_SATS,
   ID_HDOP,
@@ -70,18 +70,18 @@ JETISENSOR_CONST sensors[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEED,    "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
+  { ID_GPSSPEED,    "GPS speed",  "km/h",       JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "m",          JetiSensor::TYPE_22b, 1 },
-  { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_22b, 0 },
+  { ID_ALTABS,      "Abs. Altit", "m",          JetiSensor::TYPE_22b, 0 },
   { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_22b, 2 },
   { ID_DIST,        "Distance",   "m",          JetiSensor::TYPE_22b, 0 },
   { ID_TRIP,        "Trip",       "km",         JetiSensor::TYPE_22b, 2 },
-  { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
+  { ID_AZIMUTH,     "Azimuth",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
-  { ID_PRESSURE,    "Pressure",   "hPa",        JetiSensor::TYPE_22b, 2 },
-  { ID_TEMPERATURE, "Temperature","\xB0\x43",   JetiSensor::TYPE_14b, 1 },
+  { ID_PRESSURE,    "Air press.", "hPa",        JetiSensor::TYPE_22b, 2 },
+  { ID_TEMPERATURE, "Temp.",      "\xB0\x43",   JetiSensor::TYPE_14b, 1 },
   { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { ID_VOLTAGE,     "Voltage",    "V",          JetiSensor::TYPE_14b, 1 },
   { ID_CURRENT,     "Current",    "A",          JetiSensor::TYPE_14b, 1 },
@@ -90,7 +90,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_RX1_VOLTAGE, "Rx1 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_RX2_VOLTAGE, "Rx2 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_EXT_TEMP,    "Ext. Temp",  "\xB0\x43",   JetiSensor::TYPE_14b, 1 },
-  { ID_AIRSPEED,    "Airspeed",   "km/h",       JetiSensor::TYPE_14b, 0 },
+  { ID_AIRSPEED,    "Air speed",  "km/h",       JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 #endif
@@ -103,18 +103,18 @@ JETISENSOR_CONST sensors[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEED,    "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
+  { ID_GPSSPEED,    "GPS speed",  "mph",        JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "ft",         JetiSensor::TYPE_22b, 1 },
-  { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_22b, 0 },
+  { ID_ALTABS,      "Abs. Altit", "ft",         JetiSensor::TYPE_22b, 0 },
   { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_22b, 2 }, 
   { ID_DIST,        "Distance",   "ft.",        JetiSensor::TYPE_22b, 0 },
   { ID_TRIP,        "Trip",       "mi",         JetiSensor::TYPE_22b, 2 },
-  { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
+  { ID_AZIMUTH,     "Azimuth",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
-  { ID_PRESSURE,    "Pressure",   "inHG",       JetiSensor::TYPE_22b, 2 },
-  { ID_TEMPERATURE, "Temperature","\xB0\x46",   JetiSensor::TYPE_14b, 1 },
+  { ID_PRESSURE,    "Air press.", "inHG",       JetiSensor::TYPE_22b, 2 },
+  { ID_TEMPERATURE, "Temp.",      "\xB0\x46",   JetiSensor::TYPE_14b, 1 },
   { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { ID_VOLTAGE,     "Voltage",    "V",          JetiSensor::TYPE_14b, 1 },
   { ID_CURRENT,     "Current",    "A",          JetiSensor::TYPE_14b, 1 },
@@ -123,7 +123,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_RX1_VOLTAGE, "Rx1 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_RX2_VOLTAGE, "Rx2 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_EXT_TEMP,    "Ext. Temp",  "\xB0\x46",   JetiSensor::TYPE_14b, 1 },
-  { ID_AIRSPEED,    "Airspeed",   "mph",        JetiSensor::TYPE_14b, 0 },
+  { ID_AIRSPEED,    "Air speed",  "mph",        JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 #endif
@@ -153,7 +153,7 @@ enum {
 
 // MS5611
 #define MS5611_SMOOTHING 0.80
-#define MS5611_DEADZONE 0
+#define MS5611_DEADZONE 3
 
 // LPS (LPS311)
 #define LPS_SMOOTHING 0.80

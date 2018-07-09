@@ -6,17 +6,19 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
 
 */
-#define VARIOGPS_VERSION "Version V2.3b"
+#define VARIOGPS_VERSION "Version V2.3"
 /*
 
   ******************************************************************
   Versionen:
-  V2.3    beta      MPXV7002/MPXV5004 für Air-Speed wird unterstützt 
+  V2.3    09.07.18  MPXV7002/MPXV5004 für Air-Speed wird unterstützt 
                     TEK (Total Energie Kompensation) mit Air-Speed oder GPS-Speed (basierend auf Code von Rainer Stransky)
                     EX-Bus mit 125kbaud, Lib (v0.95) von Bernd Wokoeck
                     Stromsensor per JetiBox kalibrierbar (reset offset) 
                     separate Datei für Einstellungen (settings.h), Compillerwahrnung bei inkompatibilität der Softwareoptionen
-                    STATIC Variablen entfehrnt, konnte in einigen Fällen zu RAM-Problemen führen           
+                    Bezeichnungen der Telemetriewerte angepasst, damit diese vom Jeti Sender bestmöglich übersetzt werden
+                    Fehler behoben: STATIC Variablen entfehrnt, konnte in einigen Fällen zu RAM-Problemen führen und ergab eine fehlerhafte Funktion 
+                    Fehler behoben: 2D/3D GPS Distanz in den Einstellungen war verkehrt       
   V2.2.1  26.03.18  Bugfix bei float<->int casting Smoothing Factor (by RS)
   V2.2    15.02.18  Vario Tiefpass mit nur einem Smoothing Factor (by RS)
                     Jeder Sensor kann mit #define deaktiviert werden
@@ -402,7 +404,7 @@ void setup()
   if(gpsSettings.mode != GPS_extended){
     jetiEx.SetSensorActive( ID_DIST, false, sensors );
     jetiEx.SetSensorActive( ID_TRIP, false, sensors );
-    jetiEx.SetSensorActive( ID_HEADING, false, sensors );
+    jetiEx.SetSensorActive( ID_AZIMUTH, false, sensors );
     jetiEx.SetSensorActive( ID_COURSE, false, sensors );
     jetiEx.SetSensorActive( ID_SATS, false, sensors );
     jetiEx.SetSensorActive( ID_HDOP, false, sensors );
@@ -716,7 +718,6 @@ void loop()
           uSpeedMS = gps.speed.kmph() / 3.6;
           dV = uSpeedMS - lastGPSspeedMS;     // delta speed in m/s
           lastGPSspeedMS = uSpeedMS;
-          //uTimeSpeed = millis();
           long uTimeSpeed = millis();
           dT = uTimeSpeed - lastTimeSpeed; // dT in ms
           lastTimeSpeed = uTimeSpeed;
@@ -733,7 +734,7 @@ void loop()
 
       
 
-      jetiEx.SetSensorValue( ID_HEADING, gps.course.deg() );
+      jetiEx.SetSensorValue( ID_AZIMUTH, gps.course.deg() );
 
       if (homeSetCount < 3000) {  // set home position
         ++homeSetCount;
@@ -792,7 +793,7 @@ void loop()
       distToHome = 0;
       jetiEx.SetSensorValue( ID_COURSE, 0 );
       jetiEx.SetSensorValue( ID_GPSSPEED, 0 );
-      jetiEx.SetSensorValue( ID_HEADING, 0 );
+      jetiEx.SetSensorValue( ID_AZIMUTH, 0 );
     }
 
     jetiEx.SetSensorValue( ID_SATS, gps.satellites.value() );
