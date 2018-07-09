@@ -1,29 +1,30 @@
 /*
   -----------------------------------------------------------
-            Settings & defaults
+            Defaults
   -----------------------------------------------------------
+  It is recommended not to change these default values and parameters.
 */
 
-// **** General settings ****************
+#define MEASURING_INTERVAL        180         //ms
 
-//#define UNIT_US                             //uncomment to enable US units
-
-#define V_REF                     3300        // set supply voltage from 1800 to 5500mV
-
-// supported devices
-#define SUPPORT_BMx280                        // comment to disable devices
-#define SUPPORT_MS5611_LPS  
-#define SUPPORT_GPS
-#define SUPPORT_MAIN_DRIVE
-#define SUPPORT_RX_VOLTAGE
-#define SUPPORT_EXT_TEMP
-
-// support JetiBox menu
-#define SUPPORT_JETIBOX_MENU
-
-// **************************************
-
-
+// EEprom parameter addresses
+enum
+{
+  P_GPS_MODE =              1,
+  P_GPS_3D =                2,
+  P_CURRENT_SENSOR =        3,
+  P_CURRENT_CALIBRATION =   4,
+  P_CAPACITY_MODE =         5,
+  P_ENABLE_RX1 =            6,
+  P_ENABLE_RX2 =            7,
+  P_ENABLE_TEMP =           8,
+  P_VARIO_SMOOTHING =      10,
+  P_VARIO_DEADZONE =       12,
+  P_AIRSPEED_SENSOR =      13,
+  P_TEC_MODE =             14,
+  P_CAPACITY_VALUE =       20,
+  P_VOLTAGE_VALUE =        P_CAPACITY_VALUE+sizeof(float)
+};
 
 // Sensor IDs
 enum
@@ -36,7 +37,7 @@ enum
   ID_VARIO,
   ID_DIST,
   ID_TRIP,
-  ID_HEADING,
+  ID_AZIMUTH,
   ID_COURSE,
   ID_SATS,
   ID_HDOP,
@@ -49,7 +50,8 @@ enum
   ID_POWER,
   ID_RX1_VOLTAGE,
   ID_RX2_VOLTAGE,
-  ID_EXT_TEMP
+  ID_EXT_TEMP,
+  ID_AIRSPEED
 };
 
 /*
@@ -68,18 +70,18 @@ JETISENSOR_CONST sensors[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEED,    "Speed",      "km/h",       JetiSensor::TYPE_14b, 0 },
+  { ID_GPSSPEED,    "GPS speed",  "km/h",       JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "m",          JetiSensor::TYPE_22b, 1 },
-  { ID_ALTABS,      "Altitude",   "m",          JetiSensor::TYPE_22b, 0 },
+  { ID_ALTABS,      "Abs. Altit", "m",          JetiSensor::TYPE_22b, 0 },
   { ID_VARIO,       "Vario",      "m/s",        JetiSensor::TYPE_22b, 2 },
   { ID_DIST,        "Distance",   "m",          JetiSensor::TYPE_22b, 0 },
   { ID_TRIP,        "Trip",       "km",         JetiSensor::TYPE_22b, 2 },
-  { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
+  { ID_AZIMUTH,     "Azimuth",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
-  { ID_PRESSURE,    "Pressure",   "hPa",        JetiSensor::TYPE_22b, 2 },
-  { ID_TEMPERATURE, "Temperature","\xB0\x43",   JetiSensor::TYPE_14b, 1 },
+  { ID_PRESSURE,    "Air press.", "hPa",        JetiSensor::TYPE_22b, 2 },
+  { ID_TEMPERATURE, "Temp.",      "\xB0\x43",   JetiSensor::TYPE_14b, 1 },
   { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { ID_VOLTAGE,     "Voltage",    "V",          JetiSensor::TYPE_14b, 1 },
   { ID_CURRENT,     "Current",    "A",          JetiSensor::TYPE_14b, 1 },
@@ -88,6 +90,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_RX1_VOLTAGE, "Rx1 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_RX2_VOLTAGE, "Rx2 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_EXT_TEMP,    "Ext. Temp",  "\xB0\x43",   JetiSensor::TYPE_14b, 1 },
+  { ID_AIRSPEED,    "Air speed",  "km/h",       JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 #endif
@@ -100,18 +103,18 @@ JETISENSOR_CONST sensors[] PROGMEM =
   // id             name          unit          data type           precision
   { ID_GPSLAT,      "Latitude",   " ",          JetiSensor::TYPE_GPS, 0 },
   { ID_GPSLON,      "Longitude",  " ",          JetiSensor::TYPE_GPS, 0 },
-  { ID_GPSSPEED,    "Speed",      "mph",        JetiSensor::TYPE_14b, 0 },
+  { ID_GPSSPEED,    "GPS speed",  "mph",        JetiSensor::TYPE_14b, 0 },
   { ID_ALTREL,      "Rel. Altit", "ft",         JetiSensor::TYPE_22b, 1 },
-  { ID_ALTABS,      "Altitude",   "ft",         JetiSensor::TYPE_22b, 0 },
+  { ID_ALTABS,      "Abs. Altit", "ft",         JetiSensor::TYPE_22b, 0 },
   { ID_VARIO,       "Vario",      "ft/s",       JetiSensor::TYPE_22b, 2 }, 
   { ID_DIST,        "Distance",   "ft.",        JetiSensor::TYPE_22b, 0 },
   { ID_TRIP,        "Trip",       "mi",         JetiSensor::TYPE_22b, 2 },
-  { ID_HEADING,     "Heading",    "\xB0",       JetiSensor::TYPE_14b, 0 },
+  { ID_AZIMUTH,     "Azimuth",    "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_COURSE,      "Course",     "\xB0",       JetiSensor::TYPE_14b, 0 },
   { ID_SATS,        "Satellites", " ",          JetiSensor::TYPE_6b,  0 },
   { ID_HDOP,        "HDOP",       " ",          JetiSensor::TYPE_14b, 2 },
-  { ID_PRESSURE,    "Pressure",   "inHG",       JetiSensor::TYPE_22b, 2 },
-  { ID_TEMPERATURE, "Temperature","\xB0\x46",   JetiSensor::TYPE_14b, 1 },
+  { ID_PRESSURE,    "Air press.", "inHG",       JetiSensor::TYPE_22b, 2 },
+  { ID_TEMPERATURE, "Temp.",      "\xB0\x46",   JetiSensor::TYPE_14b, 1 },
   { ID_HUMIDITY,    "Humidity",   "%rH",        JetiSensor::TYPE_14b, 1 },
   { ID_VOLTAGE,     "Voltage",    "V",          JetiSensor::TYPE_14b, 1 },
   { ID_CURRENT,     "Current",    "A",          JetiSensor::TYPE_14b, 1 },
@@ -120,6 +123,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
   { ID_RX1_VOLTAGE, "Rx1 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_RX2_VOLTAGE, "Rx2 Voltage","V",          JetiSensor::TYPE_14b, 2 },
   { ID_EXT_TEMP,    "Ext. Temp",  "\xB0\x46",   JetiSensor::TYPE_14b, 1 },
+  { ID_AIRSPEED,    "Air speed",  "mph",        JetiSensor::TYPE_14b, 0 },
   { 0 }
 };
 #endif
@@ -128,7 +132,7 @@ JETISENSOR_CONST sensors[] PROGMEM =
 
 // **** Vario settings ****
 
-// Pressure Sensors
+// Pressure sensors
 enum {
   unknown,
   BMP280,
@@ -136,6 +140,9 @@ enum {
   MS5611_,
   LPS_
 };
+
+#define PRESSURE_SEALEVEL         101325   // Pa
+
 
 // Vario lowpass filter and
 // dead zone filter in centimeter (Even if you use US-units!)
@@ -146,11 +153,39 @@ enum {
 
 // MS5611
 #define MS5611_SMOOTHING 0.80
-#define MS5611_DEADZONE 0
+#define MS5611_DEADZONE 3
 
 // LPS (LPS311)
 #define LPS_SMOOTHING 0.80
 #define LPS_DEADZONE 0
+
+// TEC mode
+enum {
+  TEC_disabled,
+  TEC_airSpeed,
+  TEC_GPS
+};
+
+
+
+// **** Air speed settings ****
+
+// analog input pin
+#define AIRSPEED_PIN              A7
+
+// smoothing factor
+#define AIRSPEED_SMOOTHING        0.50
+
+// Atmosphere constants
+#define UNIVERSAL_GAS_CONSTANT    8.3144621f
+#define DRY_AIR_MOLAR_MASS        0.0289644f
+
+// Air speed sensors
+enum {
+  airSpeed_disabled,
+  MPXV7002_MPXV5004
+};
+
 
 
 // **** GPS settings ****
@@ -228,7 +263,7 @@ enum {
 #define CAPACITY_SAVE_INTERVAL        10000         // ms
 #define MAX_CUR_TO_SAVE_CAPACITY      2             // A
 
-// voltage difference to reset
+// voltage difference to reset capacity in automatic mode
 #define VOLTAGE_DIFFERENCE            2             // %  
 
 // suported current sensors 
@@ -336,5 +371,8 @@ const uint8_t mVperAmp[] =  {
 #define DEFAULT_ENABLE_Rx2        false
 
 #define DEFAULT_ENABLE_EXT_TEMP   false
+
+#define DEFAULT_AIRSPEED_SENSOR   airSpeed_disabled
+#define DEFAULT_TEC_MODE          TEC_disabled
 
 
