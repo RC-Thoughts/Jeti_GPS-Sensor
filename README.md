@@ -1,6 +1,6 @@
 # VarioGPS-Sensor
 
-Universeller Jeti Telemetrie Sensor mit vielen Möglichkeiten: Vario, GPS, Strom/Spannung/Kapazität/Leistung für Hauptantrieb, Empfängerspannung und Temperaturmessung. Der Sensor ist total einfach nachbaubar, und sollte auch von Elektronik-Anfängern problemlos zu bewerkstelligen sein. 
+Universeller Jeti Telemetrie Sensor mit vielen Möglichkeiten: Vario(TEK), GPS, Strom/Spannung/Kapazität/Leistung für Hauptantrieb, Air Speed mit Staudruckrohr, Empfängerspannung und Temperaturmessung. Der Sensor ist total einfach nachbaubar, und sollte auch von Elektronik-Anfängern problemlos zu bewerkstelligen sein. 
 
 ## Telemetrie
 
@@ -9,7 +9,7 @@ Universeller Jeti Telemetrie Sensor mit vielen Möglichkeiten: Vario, GPS, Strom
 ![EX-GPS2](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/EX_gps2.bmp)
 ![EX-VA](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/EX_volt_amp.bmp)
 
-Mit Luftdrucksensor werden die Werte angezeigt:
+Nur mit Barometersensor werden folgende Werte angezeigt:
 - Rel. und Abs. Höhe
 - Vario
 - Luftdruck
@@ -18,20 +18,24 @@ Mit Luftdrucksensor werden die Werte angezeigt:
   
 Im GPS Basic Mode sind folgende Werte verfügbar:
 - Position
-- Geschwindigkeit 
+- GPS speed (kann auch zur Vario-TEK Kompensation verwendet werden) 
 - Rel. und Abs. Höhe
 - Vario
   
 Im GPS Extended Mode werden zusätzlich die Werte angezeigt:
 - Distanz vom Modell zum Startpunkt (2D oder 3D)
 - zurückgelegte Strecke (Trip)
-- Flugrichtung (Heading)
+- Flugrichtung (Azimut)
 - Kurs vom Modell zum Startpunkt
 - Anzahl Satelliten
 - HDOP (Horizontaler Faktor der Positionsgenauigkeit)
 - Luftdruck
 - Temperatur
 - Luftfeuchtigkeit 
+
+Durch einen Air Speed Sensor mit Staudruckrohr sind die Werte verfügbar:
+- Air speed
+- Vario-TEK Kompensation
 
 Mit einem Strom/Spannungssensor können folgende Werte angezeigt werden:
 - Strom
@@ -52,7 +56,9 @@ Zur Messung von zB. der Motorentemperatur kann zusätzlich ein NTC-Temperaturwie
 Folgende Einstellungen können per Jetibox vorgenommen werden:
 - GPS: deaktiviert, Basic oder Extended
 - GPS Distanz: 2D oder 3D
-- Vario Filterparameter X, Y und Deadzone
+- Vario Filterparameter: Empfindlichkeit und Totzone
+- Air Speed Sensor
+- TEK Kompensation
 - Stromsensor für Hauptantrieb 
 - Einstellung Reset der Kapazität:
     - STARTUP(Wert ist nach jedem Einschalten auf 0)
@@ -65,7 +71,8 @@ Folgende Einstellungen können per Jetibox vorgenommen werden:
 
 - Arduino Pro Mini 3.3V-8Mhz oder 5V-16Mhz
 - GPS-Modul mit NMEA Protokoll und UART@9600baud
-- Luftdrucksensoren: BMP280, BME280, MS5611, LPS 
+- Barometer Sensoren: BMP280, BME280, MS5611, LPS 
+- Airspeed Sensoren: MPXV7002, MPXV5004
 - Stromsensoren @3.3V/5V Betriebsspannung:
     - AttoPilot Module @3.3V: 45A/13.6V - 90A/50V - 180A/50V (@5V: 45A/20.6V - 90A/60V - 180A/60V)
     - APM2.5 PowerModul @5V: 90A/50V (@3.3V: 58A/33.4V)
@@ -77,6 +84,10 @@ Folgende Einstellungen können per Jetibox vorgenommen werden:
 Der VarioGPS Sensor kann individuell nach seinen eigenen Wünschen zusammengestellt werden. Es ist möglich den Sensor als reines Vario zu betreiben, nur zur Vermessung des Antriebs, oder als Überwachung der Empfängerstromversorgung. Die benötigten Sensoren werden einfach am Arduino angelötet, und per Jetibox aktiviert.
 
 ![schematic](https://raw.githubusercontent.com/nightflyer88/Jeti_VarioGPS-Sensor/master/Doc/img/VarioGPS_schematic.png)
+
+Zu beachten gibt es folgendes: 
+- Die Barometer Sensoren sind empfindlich gegen Licht und sollten deshalb in schwarzem Schrumpfschlauch eingepackt werden
+- Die GPS-Module vertragen in der Regel nur eine Beschleunigung von 4G.
 
 ## Firmware laden
 
