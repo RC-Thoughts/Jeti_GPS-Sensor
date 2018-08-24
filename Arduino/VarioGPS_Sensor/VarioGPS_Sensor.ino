@@ -6,11 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
 
 */
-#define VARIOGPS_VERSION "Version V2.3"
+#define VARIOGPS_VERSION "Version V2.3.1"
 /*
 
   ******************************************************************
   Versionen:
+  V2.3.1  22.08.19  Fehler bei Temepraturwert behoben (Dezimalstelle wurde nicht angezeigt)
   V2.3    09.07.18  MPXV7002/MPXV5004 für Air-Speed wird unterstützt 
                     TEK (Total Energie Kompensation) mit Air-Speed oder GPS-Speed (basierend auf Code von Rainer Stransky)
                     EX-Bus mit 125kbaud, Lib (v0.95) von Bernd Wokoeck
@@ -207,7 +208,7 @@ long startAltitude = 0;
 long uRelAltitude = 0;
 long uAbsAltitude = 0;
 long uPressure = PRESSURE_SEALEVEL;
-int uTemperature = 20;
+float uTemperature = 20;
 float lastVariofilter = 0;
 long lastAltitude = 0;
 
@@ -470,18 +471,21 @@ void loop()
 
     #ifdef SUPPORT_MPXV7002_MPXV5004
     if(airSpeedSensor){
+      
       // get air speed from MPXV7002/MPXV5004
       // based on code from johnlenfr, http://johnlenfr.1s.fr
       int airSpeedPressure = analogRead(AIRSPEED_PIN);
       if (airSpeedPressure < refAirspeedPressure) airSpeedPressure = refAirspeedPressure;
-      
-      float pitotpressure = 5000.0 * ((airSpeedPressure - refAirspeedPressure) / 1024.0f) + uPressure;    // differential pressure in Pa, 1 V/kPa, max 3920 Pa
+
+      // differential pressure in Pa, 1 V/kPa, max 3920 Pa
+      float pitotpressure = 5000.0 * ((airSpeedPressure - refAirspeedPressure) / 1024.0f) + uPressure;    
       float density = (uPressure * DRY_AIR_MOLAR_MASS) / ((uTemperature + 273.16) * UNIVERSAL_GAS_CONSTANT);
       uAirSpeed = sqrt ((2 * (pitotpressure - uPressure)) / density);
       
       // IIR Low Pass Filter
       uAirSpeed = uAirSpeed + AIRSPEED_SMOOTHING * (lastAirSpeed - uAirSpeed);
-  
+
+      // TEC 
       #ifdef SUPPORT_TEC
       if(TECmode == TEC_airSpeed){
         uSpeedMS = uAirSpeed;
@@ -532,10 +536,8 @@ void loop()
         #endif
       }
 
-      //if (!setStartAltitude) {
       if (startAltitude == 0) {
         // Set start-altitude in sensor-start
-        //setStartAltitude = true;
         startAltitude = curAltitude;
         lastAltitude = curAltitude;
       }else{
@@ -703,15 +705,17 @@ void loop()
       }
     }
 
+    // if GPS-Fix
+    if (gps.location.isValid() && gps.location.age() < 2000) { 
 
-    if (gps.location.isValid() && gps.location.age() < 2000) { // if Fix
-
+      // Position
       jetiEx.SetSensorValueGPS( ID_GPSLAT, false, gps.location.lat() );
       jetiEx.SetSensorValueGPS( ID_GPSLON, true, gps.location.lng() );
 
       // Altitude
       uAbsAltitude = gps.altitude.meters();
 
+      // GPS TEC
       #ifdef SUPPORT_TEC
       if(TECmode == TEC_GPS){
         if (gps.speed.isUpdated()) {
@@ -726,17 +730,18 @@ void loop()
       }
       #endif
 
+      // Speed
       #ifdef UNIT_US
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.mph() );
       #else
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.kmph() );
       #endif
 
-      
-
+      // Azimuth
       jetiEx.SetSensorValue( ID_AZIMUTH, gps.course.deg() );
 
-      if (homeSetCount < 3000) {  // set home position
+      // set home position
+      if (homeSetCount < 3000) {  
         ++homeSetCount;
         home_lat = gps.location.lat();
         home_lon = gps.location.lng();
