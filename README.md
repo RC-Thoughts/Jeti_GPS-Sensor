@@ -1,5 +1,7 @@
 # VarioGPS-Sensor
 
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=R69PMKTCXQBUU&source=url)
+
 Universeller Jeti Telemetrie Sensor mit vielen Möglichkeiten: Vario(TEK), GPS, Strom/Spannung/Kapazität/Leistung für Hauptantrieb, Air Speed mit Staudruckrohr, Empfängerspannung und Temperaturmessung. Der Sensor ist total einfach nachbaubar, und sollte auch von Elektronik-Anfängern problemlos zu bewerkstelligen sein. 
 
 ## Telemetrie
