@@ -29,4 +29,3 @@
 #define SUPPORT_EXT_TEMP                      // NTC temperature sensor
 
 #define SUPPORT_JETIBOX_MENU                  // JetiBox menu
-
