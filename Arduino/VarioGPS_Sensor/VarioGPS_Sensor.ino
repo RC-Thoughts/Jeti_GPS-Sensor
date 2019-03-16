@@ -6,12 +6,13 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
 
 */
-#define VARIOGPS_VERSION "Version V2.3.1"
+#define VARIOGPS_VERSION "Version V2.3.2"
 /*
 
   ******************************************************************
   Versionen:
-  V2.3.1  22.08.19  Fehler bei Temepraturwert behoben (Dezimalstelle wurde nicht angezeigt)
+  V2.3.2  07.03.19  Fehler bei AirSpeed Sensor behoben, Geschwindigkeit wurde nur in 3-4Kmh Schritten angezeigt
+  V2.3.1  22.08.18  Fehler bei Temepraturwert behoben (Dezimalstelle wurde nicht angezeigt)
   V2.3    09.07.18  MPXV7002/MPXV5004 für Air-Speed wird unterstützt 
                     TEK (Total Energie Kompensation) mit Air-Speed oder GPS-Speed (basierend auf Code von Rainer Stransky)
                     EX-Bus mit 125kbaud, Lib (v0.95) von Bernd Wokoeck
@@ -109,8 +110,7 @@
 
 // Check airspeed-sensor supply voltage
 #if defined(SUPPORT_MPXV7002_MPXV5004) && V_REF < 4750 
-  #undef SUPPORT_MPXV7002_MPXV5004
-  #warning Supply voltage is lower than 4750mV, Airspeed sensor (MPXV7002 / MPXV5004) is disabled
+  #warning Supply voltage is below 4750 mV, the airspeed sensor (MPXV7002 / MPXV5004) may not work properly
 #endif
 
 // Check the compatibility of EX-Bus and GPS sensor
@@ -204,7 +204,6 @@ const float factorVoltageDivider[] = { float(voltageInputR1[0]+voltageInputR2[0]
 
 // pressure sensor variables
 long startAltitude = 0;
-//bool setStartAltitude = false;
 long uRelAltitude = 0;
 long uAbsAltitude = 0;
 long uPressure = PRESSURE_SEALEVEL;
@@ -214,8 +213,8 @@ long lastAltitude = 0;
 
 // airspeed variables
 int refAirspeedPressure;
-int uAirSpeed = 0;
-int lastAirSpeed = 0;
+float uAirSpeed = 0;
+float lastAirSpeed = 0;
 
 // TEC variables
 unsigned long dT = 0;
