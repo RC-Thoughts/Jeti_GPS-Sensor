@@ -6,11 +6,12 @@
   Vario, GPS, Strom/Spannung, Empfängerspannungen, Temperaturmessung
 
 */
-#define VARIOGPS_VERSION "Version V2.3.2"
+#define VARIOGPS_VERSION "Version V2.3.3"
 /*
 
   ******************************************************************
   Versionen:
+  V2.3.3  27.04.19  Fehler behoben: Azimuth und Course war vertauscht
   V2.3.2  07.03.19  Fehler bei AirSpeed Sensor behoben, Geschwindigkeit wurde nur in 3-4Kmh Schritten angezeigt
   V2.3.1  22.08.18  Fehler bei Temepraturwert behoben (Dezimalstelle wurde nicht angezeigt)
   V2.3    09.07.18  MPXV7002/MPXV5004 für Air-Speed wird unterstützt 
@@ -736,8 +737,8 @@ void loop()
         jetiEx.SetSensorValue( ID_GPSSPEED, gps.speed.kmph() );
       #endif
 
-      // Azimuth
-      jetiEx.SetSensorValue( ID_AZIMUTH, gps.course.deg() );
+      // Course
+      jetiEx.SetSensorValue( ID_COURSE, gps.course.deg() );
 
       // set home position
       if (homeSetCount < 3000) {  
@@ -769,8 +770,8 @@ void loop()
           distToHome = sqrt(pow(uRelAltitude/10,2) + pow(distToHome,2));
         }
 
-        // Course from home to model
-        jetiEx.SetSensorValue( ID_COURSE, gps.courseTo(home_lat,home_lon,gps.location.lat(),gps.location.lng()));
+        // Azimuth (course from home to model)
+        jetiEx.SetSensorValue( ID_AZIMUTH, gps.courseTo(home_lat,home_lon,gps.location.lat(),gps.location.lng()));
 
         // Trip distance
         float distLast = gps.distanceBetween(
